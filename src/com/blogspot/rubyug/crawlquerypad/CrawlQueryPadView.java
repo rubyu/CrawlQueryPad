@@ -22,6 +22,7 @@ import java.awt.Color;
 import javax.swing.undo.*;
 
 import com.blogspot.rubyug.crawlquery.*;
+import javax.swing.table.DefaultTableModel;
 
 /**
  * The application's main frame.
@@ -92,6 +93,7 @@ public class CrawlQueryPadView extends FrameView {
         queryPaneDoc = (StyledDocument) queryPane.getDocument();
         queryPaneDoc.addDocumentListener(new QueryPaneDocumentListener());
 
+        /*
         queryPane.getKeymap().addActionForKeyStroke(
           KeyStroke.getKeyStroke("ENTER"), new TextAction("ENTER") {
             public void actionPerformed(ActionEvent e) {
@@ -100,6 +102,7 @@ public class CrawlQueryPadView extends FrameView {
               } catch (Exception ex) {}
             }
         });
+        */
 
         undomanager = new UndoManager();
         queryPaneDoc.addUndoableEditListener(undomanager);
@@ -134,20 +137,19 @@ public class CrawlQueryPadView extends FrameView {
         return writer.toString();
     }
 
-    void queryParse() {
-
-        System.out.println( "--------------------" );
-
+    void highlightUpdate() {
+        if (null == query) {
+          return;
+        }
         //disconnect undomanager
         queryPaneDoc.removeUndoableEditListener(undomanager);
-        
+
         String text = queryPane.getText();
         StyledDocument doc = (StyledDocument) queryPane.getDocument();
         // remove all atteributes
         SimpleAttributeSet plane = new SimpleAttributeSet();
         doc.setCharacterAttributes(0, text.length(), plane, true);
 
-        //
         List<Integer> textLineCount = new ArrayList<Integer>();
         textLineCount.add(0);
         for( int i=0; i < text.length(); i++ ) {
@@ -167,27 +169,156 @@ public class CrawlQueryPadView extends FrameView {
           }
         }
 
-        logPane.setText("");
+        StringBuffer sb = new StringBuffer();
+        //initialize
+        List<Object[]> stack = new ArrayList<Object[]>();
+        stack.add( new Object[]{query, -1} );
+        int depth = 0;
+        for(;;) {
+          if ( depth == -1 ) {
+            break;
+          }
+          Object[] o = stack.get(depth);
+          SimpleNode node = (SimpleNode)o[0];
+          int cursor = (Integer)o[1];
+          cursor++;
+          o[1] = cursor;
+
+          if (cursor == 0) { //at first visit
+
+            //write node name
+            for ( int i=0; i < depth; i++ ) {
+              sb.append(" ");
+            }
+            sb.append(node.toString());
+
+            if (null != node.jjtGetValue()) { //if node has value
+              Object[] arr = (Object[])node.jjtGetValue();
+              Throwable throwable = (Throwable)arr[0];
+              Token token = (Token)arr[1];
+              String value = (String)arr[2];
+
+              if (null != token) {
+                //calculate node position
+                int startPos = -1;
+                for ( int i=0; i < token.beginLine - 1; i++ ) {
+                  startPos += textLineCount.get(i);
+                }
+                startPos += token.beginColumn;
+
+                int endPos = 0;
+                for ( int i=0; i < token.endLine - 1; i++ ) {
+                  endPos += textLineCount.get(i);
+                }
+                endPos += token.endColumn;
+
+                int length = endPos - startPos;
+
+                boolean caretOnToken = false;
+                if ( startPos <= queryPane.getCaretPosition() &&
+                     queryPane.getCaretPosition() <= endPos
+                   ) {
+                   caretOnToken = true;
+                }
+
+                //apply code highlight
+                SimpleAttributeSet attr = new SimpleAttributeSet();
+                if (token.kind == QueryParserConstants.URL) {
+                  StyleConstants.setForeground(attr, new Color(78,191,233) ); //blue
+                  if (caretOnToken) {
+                    StyleConstants.setBackground(attr, new Color(252,245,167) );
+                  }
+
+                } else if ( token.kind == QueryParserConstants.REGEX ||
+                            token.kind == QueryParserConstants.REGEX_OPTION
+                          ) {
+                  StyleConstants.setForeground(attr, new Color(225,40,133) ); //red
+                  if (caretOnToken) {
+                    StyleConstants.setBackground(attr, new Color(252,245,167) );
+                  }
+
+                } else if (token.kind == QueryParserConstants.NUMBER) {
+                  StyleConstants.setBold(attr, true);
+                  StyleConstants.setForeground(attr, new Color(85,86,88) ); //gray
+                  if (caretOnToken) {
+                    StyleConstants.setBackground(attr, new Color(252,245,167) );
+                  }
+
+                } else if (token.kind == QueryParserConstants.GT) {
+                  StyleConstants.setBold(attr, true);
+                  StyleConstants.setForeground(attr, new Color(55,59,62) ); //dark gray
+
+                } else if ( token.kind == QueryParserConstants.L_PAREN ||
+                            token.kind == QueryParserConstants.R_PAREN
+                          ) {
+                  StyleConstants.setBold(attr, true);
+                  StyleConstants.setForeground(attr, new Color(85,86,88) ); //gray
+
+                } else if ( token.kind == QueryParserConstants.ORDER_ASC ||
+                            token.kind == QueryParserConstants.ORDER_DESC
+                          ) {
+                  StyleConstants.setForeground(attr, new Color(242,156,73) ); //orange
+                  if (caretOnToken) {
+                    StyleConstants.setBackground(attr, new Color(252,245,167) );
+                  }
+
+                } else if ( token.kind == QueryParserConstants.FIELD_ID ||
+                            token.kind == QueryParserConstants.FIELD_BODY ||
+                            token.kind == QueryParserConstants.FIELD_LINKWORD ||
+                            token.kind == QueryParserConstants.FIELD_TEXT ||
+                            token.kind == QueryParserConstants.FIELD_TITLE ||
+                            token.kind == QueryParserConstants.FIELD_URL
+                          ) {
+                  StyleConstants.setForeground(attr, new Color(19,122,127) ); //green
+                  if (caretOnToken) {
+                    StyleConstants.setBackground(attr, new Color(252,245,167) );
+                  }
+
+                }
+                doc.setCharacterAttributes(startPos, length, attr, true);
+              }
+              //write node value
+              if ( null != value ) {
+                sb.append(" : ");
+                sb.append(value);
+              }
+            }
+            sb.append("\n");
+          }
+          if ( node.jjtGetNumChildren() <= cursor ) {
+            stack.remove(depth);
+            depth--;
+          } else {
+            //depth-first
+            stack.add( new Object[]{ node.jjtGetChild(cursor), -1 } );
+            depth++;
+          }
+        }
+        System.out.println( sb.toString() );
+        //reconnect undomanager
+        queryPaneDoc.addUndoableEditListener(undomanager);
+
+    }
+    void queryParse() {
+        resultPane.setText("");
         QueryParser parser = new QueryParser( new StringReader(queryPane.getText()) );
+
+        //命令リスト
+        List<Object[]> operations = new ArrayList<Object[]>();
+        //エラーリスト
+        List<Throwable> throwables = new ArrayList<Throwable>();
         try {
-          SimpleNode query = parser.parse();
+          query = parser.parse();          
 
-          //
-          List<Object[]> stack;
-          int depth;
-
-          //pass 1
           //ノードのナンバリングのためのリスト
           List<SimpleNode> nodes = new ArrayList<SimpleNode>();
-          //命令リスト
-          List<String> operations = new ArrayList<String>();
-          //エラーリスト
-          List<Throwable> throwables = new ArrayList<Throwable>();
+          nodes.add(null); //dummy
 
           //initialize
-          stack = new ArrayList<Object[]>();
+          List<Object[]> stack = new ArrayList<Object[]>();
           stack.add( new Object[]{query, -1} );
-          depth = 0;
+          int depth = 0;
+
           for(;;) {
             if ( depth == -1 ) {
               break;
@@ -213,83 +344,150 @@ public class CrawlQueryPadView extends FrameView {
 
               //add operation
               if ( node instanceof Condition ) {
-                operations.add( "[CONDITION] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CONDITION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Condition_AND ) {
-                operations.add( "[CONDITION AND] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CONDITION AND", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Condition_Match ) {
-                operations.add( "[CONDITION MATCH] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CONDITION MATCH", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Condition_OR ) {
-                operations.add( "[CONDITION OR] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CONDITION OR", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Condition_Unary_NOT ) {
-                operations.add( "[CONDITION UNARY NOT] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CONDITION UNARY NOT", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
 
               } else if ( node instanceof Crawl ) {
-                operations.add( "[CRAWL] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Execute ) {
-                operations.add( "[CRAWL EXECUTE] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL EXECUTE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Filter ) {
-                operations.add( "[CRAWL FILTER] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL FILTER", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Operator_Difference ) {
-                operations.add( "[CRAWL OP DIFFERENCE] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL OP DIRRERENCE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Operator_Intersection ) {
-                operations.add( "[CRAWL OP INTERSECTION] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
-              } else if ( node instanceof Crawl_Operator_SymmetricDefference ) {
-                operations.add( "[CRAWL OP SYMMETRIC DEFFERENCE] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL OP INTERSECTION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
+              } else if ( node instanceof Crawl_Operator_SymmetricDifference ) {
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL OP SYMMETRIC DIFFERENCE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Operator_Union ) {
-                operations.add( "[CRAWL OP UNION] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL OP UNION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Crawl_Set_Condition ) {
-                operations.add( "[CRAWL SET CONDITION] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "CRAWL SET CONDITION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
 
               } else if ( node instanceof Depth_Value ) {
                 Object[] arr = (Object[])node.jjtGetValue();
                 String value = (String)arr[2];
-                operations.add( "[DEPTH VALUE] " + nodes.indexOf(node.jjtGetParent()) + ", " + value );
+                operations.add( new Object[] {
+                    operations.size() + 1, "DEPTH VALUE", nodes.indexOf(node.jjtGetParent()), value, 0
+                  } );
 
               } else if ( node instanceof Field_BODY ) {
-                operations.add( "[FIELD BODY] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_BODY" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD BODY", nodes.indexOf(node.jjtGetParent()), "FIELD_BODY", 0
+                  } );
               } else if ( node instanceof Field_ID ) {
-                operations.add( "[FIELD ID] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_ID" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD ID", nodes.indexOf(node.jjtGetParent()), "FIELD_ID", 0
+                  } );
               } else if ( node instanceof Field_LINKWORD ) {
-                operations.add( "[FIELD LINKWORD] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_LINKWORD" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD LINKWORD", nodes.indexOf(node.jjtGetParent()), "FIELD_LINKWORD", 0
+                  } );
               } else if ( node instanceof Field_TEXT ) {
-                operations.add( "[FIELD TEXT] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_TEXT" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD TEXT", nodes.indexOf(node.jjtGetParent()), "FIELD_TEXT", 0
+                  } );
               } else if ( node instanceof Field_TITLE ) {
-                operations.add( "[FIELD TITLE] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_TITLE" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD TITLE", nodes.indexOf(node.jjtGetParent()), "FIELD_TITLE", 0
+                  } );
               } else if ( node instanceof Field_URL ) {
-                operations.add( "[FIELD URL] " + nodes.indexOf(node.jjtGetParent()) + ", FIELD_URL" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "FIELD URL", nodes.indexOf(node.jjtGetParent()), "FIELD_URL", 0
+                  } );
 
               } else if ( node instanceof Index_Order ) {
-                operations.add( "[INDEX ORDER] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "INDEX ORDER", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
 
               } else if ( node instanceof Order_ASC ) {
-                operations.add( "[ORDER ASC] " + nodes.indexOf(node.jjtGetParent()) + ", ORDER_ASC" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "ORDER ASC", nodes.indexOf(node.jjtGetParent()), "ORDER_ASC", 0
+                  } );
               } else if ( node instanceof Order_DESC ) {
-                operations.add( "[ORDER DESC] " + nodes.indexOf(node.jjtGetParent()) + ", ORDER_DESC" );
+                operations.add( new Object[] {
+                    operations.size() + 1, "ORDER DESC", nodes.indexOf(node.jjtGetParent()), "ORDER_DESC", 0
+                  } );
 
               } else if ( node instanceof Query ) {
-                operations.add( "[QUERY] " + "- , " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "QUERY", 0, nodes.indexOf(node), 0
+                  } );
 
               } else if ( node instanceof Query_Option_Index ) {
-                operations.add( "[QUERY OPTION INDEX] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "QUERY OPTION INDEX", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
 
               } else if ( node instanceof Regex ) {
-                operations.add( "[REGEX] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "REGEX", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
               } else if ( node instanceof Regex_Option_Value ) {
                 Object[] arr = (Object[])node.jjtGetValue();
                 String value = (String)arr[2];
-                operations.add( "[REGEX OPTION VALUE] " + nodes.indexOf(node.jjtGetParent()) + ", " + value );
+                operations.add( new Object[] {
+                    operations.size() + 1, "REGEX OPTION VALUE", nodes.indexOf(node.jjtGetParent()), value, 0
+                  } );
               }  else if ( node instanceof Regex_Pattern_Value ) {
                 Object[] arr = (Object[])node.jjtGetValue();
                 String value = (String)arr[2];
-                operations.add( "[REGEX PATTERN VALUE] " + nodes.indexOf(node.jjtGetParent()) + ", " + value );
+                operations.add( new Object[] {
+                    operations.size() + 1, "REGEX PATTERN VALUE", nodes.indexOf(node.jjtGetParent()), value, 0
+                  } );
 
               } else if ( node instanceof Url_Value ) {
                 Object[] arr = (Object[])node.jjtGetValue();
                 String value = (String)arr[2];
-                operations.add( "[URL] " + nodes.indexOf(node.jjtGetParent()) + ", " + value );
+                operations.add( new Object[] {
+                    operations.size() + 1, "URL", nodes.indexOf(node.jjtGetParent()), value, 0
+                  } );
 
               } else if ( node instanceof Urls ) {
-                operations.add( "[URLS] " + nodes.indexOf(node.jjtGetParent()) + ", " + nodes.indexOf(node) );
+                operations.add( new Object[] {
+                    operations.size() + 1, "URLS", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node), 0
+                  } );
+
+              } else if ( node instanceof Chain ||
+                          node instanceof Left_Paren ||
+                          node instanceof Right_Paren  ) {
+                //pass
+              } else {
+                throw new Exception("Unknown Class!");
               }
 
               stack.remove(depth);
@@ -301,150 +499,28 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
 
-          for (String s: operations) {
-            System.out.println( s );
-          }
-
-          //pass 2
-          StringBuffer sb = new StringBuffer();
-          //initialize
-          stack = new ArrayList<Object[]>();
-          stack.add( new Object[]{query, -1} );
-          depth = 0;
-          for(;;) {
-            if ( depth == -1 ) {
-              break;
-            }
-            Object[] o = stack.get(depth);
-            SimpleNode node = (SimpleNode)o[0];
-            int cursor = (Integer)o[1];
-            cursor++;
-            o[1] = cursor;
-
-            if (cursor == 0) { //at first visit
-              
-              //write node name
-              for ( int i=0; i < depth; i++ ) {
-                sb.append(" ");
-              }
-              sb.append(node.toString());
-
-              if (null != node.jjtGetValue()) { //if node has value
-                Object[] arr = (Object[])node.jjtGetValue();
-                Throwable throwable = (Throwable)arr[0];
-                Token token = (Token)arr[1];
-                String value = (String)arr[2];
-                
-                if (null != token) {
-                  //calculate node position
-                  int startPos = -1;
-                  for ( int i=0; i < token.beginLine - 1; i++ ) {
-                    startPos += textLineCount.get(i);
-                  }
-                  startPos += token.beginColumn;
-
-                  int endPos = 0;
-                  for ( int i=0; i < token.endLine - 1; i++ ) {
-                    endPos += textLineCount.get(i);
-                  }
-                  endPos += token.endColumn;
-
-                  int length = endPos - startPos;
-
-                  boolean caretOnToken = false;
-                  if ( startPos <= queryPane.getCaretPosition() &&
-                       queryPane.getCaretPosition() <= endPos
-                     ) {
-                     caretOnToken = true;
-                  }
-
-                  //apply code highlight
-                  SimpleAttributeSet attr = new SimpleAttributeSet();
-                  if (token.kind == QueryParserConstants.URL) {
-                    StyleConstants.setForeground(attr, new Color(78,191,233) ); //blue
-                    if (caretOnToken) {
-                      StyleConstants.setBackground(attr, new Color(252,245,167) );
-                    }
-
-                  } else if ( token.kind == QueryParserConstants.REGEX ||
-                              token.kind == QueryParserConstants.REGEX_OPTION
-                            ) {
-                    StyleConstants.setForeground(attr, new Color(225,40,133) ); //red
-                    if (caretOnToken) {
-                      StyleConstants.setBackground(attr, new Color(252,245,167) );
-                    }
-
-                  } else if (token.kind == QueryParserConstants.NUMBER) {
-                    StyleConstants.setBold(attr, true);
-                    StyleConstants.setForeground(attr, new Color(85,86,88) ); //gray
-                    if (caretOnToken) {
-                      StyleConstants.setBackground(attr, new Color(252,245,167) );
-                    }
-
-                  } else if (token.kind == QueryParserConstants.GT) {
-                    StyleConstants.setBold(attr, true);
-                    StyleConstants.setForeground(attr, new Color(55,59,62) ); //dark gray
-
-                  } else if ( token.kind == QueryParserConstants.L_PAREN ||
-                              token.kind == QueryParserConstants.R_PAREN
-                            ) {
-                    StyleConstants.setBold(attr, true);
-                    StyleConstants.setForeground(attr, new Color(85,86,88) ); //gray
-
-                  } else if ( token.kind == QueryParserConstants.ORDER_ASC ||
-                              token.kind == QueryParserConstants.ORDER_DESC
-                            ) {
-                    StyleConstants.setForeground(attr, new Color(242,156,73) ); //orange
-                    if (caretOnToken) {
-                      StyleConstants.setBackground(attr, new Color(252,245,167) );
-                    }
-
-                  } else if ( token.kind == QueryParserConstants.FIELD_ID ||
-                              token.kind == QueryParserConstants.FIELD_BODY ||
-                              token.kind == QueryParserConstants.FIELD_LINKWORD ||
-                              token.kind == QueryParserConstants.FIELD_TEXT ||
-                              token.kind == QueryParserConstants.FIELD_TITLE ||
-                              token.kind == QueryParserConstants.FIELD_URL
-                            ) {
-                    StyleConstants.setForeground(attr, new Color(19,122,127) ); //green
-                    if (caretOnToken) {
-                      StyleConstants.setBackground(attr, new Color(252,245,167) );
-                    }
-
-                  }
-                  doc.setCharacterAttributes(startPos, length, attr, true);
-                }
-                //write node value
-                if ( null != value ) {
-                  sb.append(" : ");
-                  sb.append(value);
-                }
-              }
-              sb.append("\n");
-            }
-            if ( node.jjtGetNumChildren() <= cursor ) {
-              stack.remove(depth);
-              depth--;
-            } else {
-              //depth-first
-              stack.add( new Object[]{ node.jjtGetChild(cursor), -1 } );
-              depth++;
-            }
-          }
-
-          logPane.setText( sb.toString() );
         } catch (Throwable t) {
-          logPane.setText( ThrowableToString(t) );
+          resultPane.setText( ThrowableToString(t) );
         }
-        //reconnect undomanager
-        queryPaneDoc.addUndoableEditListener(undomanager);
-
-        System.out.println( "--------------------" );
+        opTable.removeAll();
+        javax.swing.table.DefaultTableModel model = (DefaultTableModel)opTable.getModel();
+        model.setRowCount(0);
+        for (Object[] arr: operations) {
+          model.addRow(arr);
+        }
+    }
+    void invokeHighlightUpdate() {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                highlightUpdate();
+            }
+        });
     }
     void invokeQueryParse() {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 queryParse();
+                highlightUpdate();
             }
         });
     }
@@ -460,8 +536,7 @@ public class CrawlQueryPadView extends FrameView {
     }
     class QueryPaneCaretListener implements CaretListener {
       public void caretUpdate(CaretEvent e){
-        //
-        invokeQueryParse();
+        invokeHighlightUpdate();
       }
     }
 
@@ -490,12 +565,12 @@ public class CrawlQueryPadView extends FrameView {
     queryPane = new javax.swing.JTextPane();
     jSplitPane2 = new javax.swing.JSplitPane();
     jScrollPane2 = new javax.swing.JScrollPane();
-    logPane = new javax.swing.JTextPane();
-    jTabbedPane1 = new javax.swing.JTabbedPane();
-    jScrollPane3 = new javax.swing.JScrollPane();
-    queryTable = new javax.swing.JTable();
+    resultPane = new javax.swing.JTextPane();
+    jSplitPane3 = new javax.swing.JSplitPane();
     jScrollPane4 = new javax.swing.JScrollPane();
-    crawlTable = new javax.swing.JTable();
+    resultTable = new javax.swing.JTable();
+    jScrollPane3 = new javax.swing.JScrollPane();
+    opTable = new javax.swing.JTable();
     menuBar = new javax.swing.JMenuBar();
     javax.swing.JMenu fileMenu = new javax.swing.JMenu();
     javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -530,51 +605,53 @@ public class CrawlQueryPadView extends FrameView {
     jScrollPane2.setBorder(null);
     jScrollPane2.setName("jScrollPane2"); // NOI18N
 
-    logPane.setName("logPane"); // NOI18N
-    jScrollPane2.setViewportView(logPane);
+    resultPane.setName("resultPane"); // NOI18N
+    jScrollPane2.setViewportView(resultPane);
 
     jSplitPane2.setRightComponent(jScrollPane2);
 
-    jTabbedPane1.setName("jTabbedPane1"); // NOI18N
+    jSplitPane3.setName("jSplitPane3"); // NOI18N
 
-    jScrollPane3.setName("jScrollPane3"); // NOI18N
+    jScrollPane4.setName("jScrollPane4"); // NOI18N
 
-    queryTable.setModel(new javax.swing.table.DefaultTableModel(
+    resultTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
 
       },
       new String [] {
-        "id", "name", "summary", "progress"
+        "id", "url", "linkword", "title", "body", "text"
       }
     ) {
       boolean[] canEdit = new boolean [] {
-        false, false, false, false
+        false, false, false, false, false, false
       };
 
       public boolean isCellEditable(int rowIndex, int columnIndex) {
         return canEdit [columnIndex];
       }
     });
-    queryTable.setName("queryTable"); // NOI18N
-    jScrollPane3.setViewportView(queryTable);
+    resultTable.setName("resultTable"); // NOI18N
+    jScrollPane4.setViewportView(resultTable);
     org.jdesktop.application.ResourceMap resourceMap = org.jdesktop.application.Application.getInstance(com.blogspot.rubyug.crawlquerypad.CrawlQueryPadApp.class).getContext().getResourceMap(CrawlQueryPadView.class);
-    queryTable.getColumnModel().getColumn(0).setPreferredWidth(20);
-    queryTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("queryTable.columnModel.title0")); // NOI18N
-    queryTable.getColumnModel().getColumn(1).setHeaderValue(resourceMap.getString("queryTable.columnModel.title1")); // NOI18N
-    queryTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("queryTable.columnModel.title2")); // NOI18N
-    queryTable.getColumnModel().getColumn(3).setPreferredWidth(20);
-    queryTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("queryTable.columnModel.title3")); // NOI18N
+    resultTable.getColumnModel().getColumn(0).setResizable(false);
+    resultTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+    resultTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("resultTable.columnModel.title5")); // NOI18N
+    resultTable.getColumnModel().getColumn(1).setHeaderValue(resourceMap.getString("resultTable.columnModel.title0")); // NOI18N
+    resultTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("resultTable.columnModel.title1")); // NOI18N
+    resultTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("resultTable.columnModel.title2")); // NOI18N
+    resultTable.getColumnModel().getColumn(4).setHeaderValue(resourceMap.getString("resultTable.columnModel.title3")); // NOI18N
+    resultTable.getColumnModel().getColumn(5).setHeaderValue(resourceMap.getString("resultTable.columnModel.title4")); // NOI18N
 
-    jTabbedPane1.addTab(resourceMap.getString("jScrollPane3.TabConstraints.tabTitle"), jScrollPane3); // NOI18N
+    jSplitPane3.setRightComponent(jScrollPane4);
 
-    jScrollPane4.setName("jScrollPane4"); // NOI18N
+    jScrollPane3.setName("jScrollPane3"); // NOI18N
 
-    crawlTable.setModel(new javax.swing.table.DefaultTableModel(
+    opTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
 
       },
       new String [] {
-        "url", "linkword", "title", "body", "text"
+        "id", "Instruction", "Op1", "Op2", "progress"
       }
     ) {
       boolean[] canEdit = new boolean [] {
@@ -585,17 +662,24 @@ public class CrawlQueryPadView extends FrameView {
         return canEdit [columnIndex];
       }
     });
-    crawlTable.setName("crawlTable"); // NOI18N
-    jScrollPane4.setViewportView(crawlTable);
-    crawlTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("crawlTable.columnModel.title0")); // NOI18N
-    crawlTable.getColumnModel().getColumn(1).setHeaderValue(resourceMap.getString("crawlTable.columnModel.title1")); // NOI18N
-    crawlTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("crawlTable.columnModel.title2")); // NOI18N
-    crawlTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("crawlTable.columnModel.title3")); // NOI18N
-    crawlTable.getColumnModel().getColumn(4).setHeaderValue(resourceMap.getString("crawlTable.columnModel.title4")); // NOI18N
+    opTable.setName("opTable"); // NOI18N
+    opTable.getTableHeader().setReorderingAllowed(false);
+    jScrollPane3.setViewportView(opTable);
+    opTable.getColumnModel().getColumn(0).setResizable(false);
+    opTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+    opTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("opTable.columnModel.title0")); // NOI18N
+    opTable.getColumnModel().getColumn(1).setHeaderValue(resourceMap.getString("opTable.columnModel.title1")); // NOI18N
+    opTable.getColumnModel().getColumn(2).setResizable(false);
+    opTable.getColumnModel().getColumn(2).setPreferredWidth(20);
+    opTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("opTable.columnModel.title2")); // NOI18N
+    opTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("opTable.columnModel.title3")); // NOI18N
+    opTable.getColumnModel().getColumn(4).setResizable(false);
+    opTable.getColumnModel().getColumn(4).setPreferredWidth(20);
+    opTable.getColumnModel().getColumn(4).setHeaderValue(resourceMap.getString("opTable.columnModel.title4")); // NOI18N
 
-    jTabbedPane1.addTab(resourceMap.getString("jScrollPane4.TabConstraints.tabTitle"), jScrollPane4); // NOI18N
+    jSplitPane3.setLeftComponent(jScrollPane3);
 
-    jSplitPane2.setTopComponent(jTabbedPane1);
+    jSplitPane2.setLeftComponent(jSplitPane3);
 
     jSplitPane1.setRightComponent(jSplitPane2);
 
@@ -665,20 +749,20 @@ public class CrawlQueryPadView extends FrameView {
   }// </editor-fold>//GEN-END:initComponents
 
   // Variables declaration - do not modify//GEN-BEGIN:variables
-  private javax.swing.JTable crawlTable;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
   private javax.swing.JScrollPane jScrollPane3;
   private javax.swing.JScrollPane jScrollPane4;
   private javax.swing.JSplitPane jSplitPane1;
   private javax.swing.JSplitPane jSplitPane2;
-  private javax.swing.JTabbedPane jTabbedPane1;
-  private javax.swing.JTextPane logPane;
+  private javax.swing.JSplitPane jSplitPane3;
   private javax.swing.JPanel mainPanel;
   private javax.swing.JMenuBar menuBar;
+  private javax.swing.JTable opTable;
   private javax.swing.JProgressBar progressBar;
   private javax.swing.JTextPane queryPane;
-  private javax.swing.JTable queryTable;
+  private javax.swing.JTextPane resultPane;
+  private javax.swing.JTable resultTable;
   private javax.swing.JLabel statusAnimationLabel;
   private javax.swing.JLabel statusMessageLabel;
   private javax.swing.JPanel statusPanel;
@@ -694,4 +778,5 @@ public class CrawlQueryPadView extends FrameView {
 
     private final UndoManager undomanager;
     private final StyledDocument queryPaneDoc;
+    private SimpleNode query = null;
 }
