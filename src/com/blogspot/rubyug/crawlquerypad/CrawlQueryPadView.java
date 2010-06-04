@@ -311,7 +311,15 @@ public class CrawlQueryPadView extends FrameView {
 
     }
     void queryParse() {
+      
+      //clear
+      javax.swing.table.DefaultTableModel model;
+      model = (DefaultTableModel)instTable.getModel();
+      model.setRowCount(0);
+      model = (DefaultTableModel)resultTable.getModel();
+      model.setRowCount(0);
       resultPane.setText("");
+
       QueryParser parser = new QueryParser( new StringReader(queryPane.getText()) );
 
       //命令リスト
@@ -511,14 +519,12 @@ public class CrawlQueryPadView extends FrameView {
         }
 
       } catch (Throwable t) {
-        instTable.removeAll();
         resultPane.setText( ThrowableToString(t) );
         statusMessageLabel.setText("Error!");
         return;
       }
 
-      instTable.removeAll();
-      javax.swing.table.DefaultTableModel model = (DefaultTableModel)instTable.getModel();
+      model = (DefaultTableModel)instTable.getModel();
       model.setRowCount(0);
       for (Object[] arr: instructions) {
         model.addRow(arr);
@@ -695,7 +701,7 @@ public class CrawlQueryPadView extends FrameView {
               List toArr   = pool.get(to);
               int depth = (Integer)fromArr.get(0);
               LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-              set = set.getCrawled(conn, manager, depth, filters);
+              set = set.getCrawled(depth, filters);
               toArr.clear();
               toArr.add(set);
               
@@ -703,7 +709,7 @@ public class CrawlQueryPadView extends FrameView {
               List fromArr = pool.get((Integer)from);
               List toArr   = pool.get(to);
               LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-              LogicalOperationSet newSet = set.getCondsFiltered(conn, manager, fromArr);
+              LogicalOperationSet newSet = set.getCondsFiltered(fromArr);
               toArr.clear();
               toArr.add(newSet);
 
@@ -814,7 +820,7 @@ public class CrawlQueryPadView extends FrameView {
 
             } else if ( inst.equals("URLS") ) {
               List fromArr = pool.get((Integer)from);
-              LogicalOperationSet urls = new LogicalOperationSet();
+              LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
               for (Object o : fromArr) {
                 String fullUrl = (String)o;
                 if (!DomUtils.isValidURL(fullUrl)) {
@@ -823,8 +829,8 @@ public class CrawlQueryPadView extends FrameView {
                 int urlId = manager.register(fullUrl);
                 urls.add( urlId );
               }
-              urls = urls.getResponseCodeFiltered(conn, manager);
-              urls = urls.getContentTypeFiltered(conn, manager);
+              urls = urls.getResponseCodeFiltered();
+              urls = urls.getContentTypeFiltered();
               pool.get(to).add( urls );
 
 
@@ -911,7 +917,8 @@ public class CrawlQueryPadView extends FrameView {
         try {
           conn = connectionPool.getConnection();
 
-          resultTable.removeAll();
+          StringBuffer bf = new StringBuffer();
+
           javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
           model.setRowCount(0);
           for (int i=0; i < resultArr.length; i++) {
@@ -925,7 +932,11 @@ public class CrawlQueryPadView extends FrameView {
                 loader.getText(conn)
               }
             );
+            bf.append(loader.getText(conn));
           }
+          
+          resultPane.setText(bf.toString());
+
         } catch (Exception e) {
           logger.error(Utils.ThrowableToString(e));
         } finally {

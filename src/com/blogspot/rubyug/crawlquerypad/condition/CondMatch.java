@@ -70,21 +70,21 @@ public class CondMatch implements ICondition {
       String value = loader.getTitle(conn);
       logger.debug("value: " + value);
       if (value != null) {
-        this.pattern.matcher(value).find();
+        return this.pattern.matcher(value).find();
       }
 
     } else if (this.field == Fields.Field.BODY) {
       String value = loader.getContentString(conn);
       logger.debug("value: " + value);
       if (value != null) {
-        this.pattern.matcher(value).find();
+        return this.pattern.matcher(value).find();
       }
       
     } else if (this.field == Fields.Field.TEXT) {
       String value = loader.getText(conn);
       logger.debug("value: " + value);
       if (value != null) {
-        this.pattern.matcher(value).find();
+        return this.pattern.matcher(value).find();
       }
 
     } else {
