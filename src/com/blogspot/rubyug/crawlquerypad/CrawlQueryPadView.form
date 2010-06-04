@@ -74,6 +74,7 @@
                   <SubComponents>
                     <Component class="javax.swing.JTextPane" name="resultPane">
                       <Properties>
+                        <Property name="editable" type="boolean" value="false"/>
                         <Property name="name" type="java.lang.String" value="resultPane" noResource="true"/>
                       </Properties>
                     </Component>
@@ -109,10 +110,9 @@
                         <Component class="javax.swing.JTable" name="resultTable">
                           <Properties>
                             <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
-                              <Table columnCount="6" rowCount="0">
+                              <Table columnCount="5" rowCount="0">
                                 <Column editable="false" title="id" type="java.lang.Object"/>
                                 <Column editable="false" title="url" type="java.lang.Object"/>
-                                <Column editable="false" title="linkword" type="java.lang.Object"/>
                                 <Column editable="false" title="title" type="java.lang.Object"/>
                                 <Column editable="false" title="body" type="java.lang.Object"/>
                                 <Column editable="false" title="text" type="java.lang.Object"/>
@@ -127,11 +127,6 @@
                                 </Column>
                                 <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
                                   <Title resourceKey="resultTable.columnModel.title0"/>
-                                  <Editor/>
-                                  <Renderer/>
-                                </Column>
-                                <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
-                                  <Title resourceKey="resultTable.columnModel.title1"/>
                                   <Editor/>
                                   <Renderer/>
                                 </Column>
@@ -175,47 +170,41 @@
 
                       <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
                       <SubComponents>
-                        <Component class="javax.swing.JTable" name="opTable">
+                        <Component class="javax.swing.JTable" name="instTable">
                           <Properties>
                             <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
-                              <Table columnCount="5" rowCount="0">
+                              <Table columnCount="4" rowCount="0">
                                 <Column editable="false" title="id" type="java.lang.Object"/>
                                 <Column editable="false" title="Instruction" type="java.lang.Object"/>
                                 <Column editable="false" title="Op1" type="java.lang.Object"/>
                                 <Column editable="false" title="Op2" type="java.lang.Object"/>
-                                <Column editable="false" title="progress" type="java.lang.Object"/>
                               </Table>
                             </Property>
                             <Property name="columnModel" type="javax.swing.table.TableColumnModel" editor="org.netbeans.modules.form.editors2.TableColumnModelEditor">
                               <TableColumnModel selectionModel="0">
                                 <Column maxWidth="-1" minWidth="-1" prefWidth="20" resizable="false">
-                                  <Title resourceKey="opTable.columnModel.title0"/>
+                                  <Title resourceKey="instTable.columnModel.title0"/>
                                   <Editor/>
                                   <Renderer/>
                                 </Column>
                                 <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
-                                  <Title resourceKey="opTable.columnModel.title1"/>
+                                  <Title resourceKey="instTable.columnModel.title1"/>
                                   <Editor/>
                                   <Renderer/>
                                 </Column>
                                 <Column maxWidth="-1" minWidth="-1" prefWidth="20" resizable="false">
-                                  <Title resourceKey="opTable.columnModel.title2"/>
+                                  <Title resourceKey="instTable.columnModel.title2"/>
                                   <Editor/>
                                   <Renderer/>
                                 </Column>
                                 <Column maxWidth="-1" minWidth="-1" prefWidth="-1" resizable="true">
-                                  <Title resourceKey="opTable.columnModel.title3"/>
-                                  <Editor/>
-                                  <Renderer/>
-                                </Column>
-                                <Column maxWidth="-1" minWidth="-1" prefWidth="20" resizable="false">
-                                  <Title resourceKey="opTable.columnModel.title4"/>
+                                  <Title resourceKey="instTable.columnModel.title3"/>
                                   <Editor/>
                                   <Renderer/>
                                 </Column>
                               </TableColumnModel>
                             </Property>
-                            <Property name="name" type="java.lang.String" value="opTable" noResource="true"/>
+                            <Property name="name" type="java.lang.String" value="instTable" noResource="true"/>
                             <Property name="tableHeader" type="javax.swing.table.JTableHeader" editor="org.netbeans.modules.form.editors2.JTableHeaderEditor">
                               <TableHeader reorderingAllowed="false" resizingAllowed="true"/>
                             </Property>
