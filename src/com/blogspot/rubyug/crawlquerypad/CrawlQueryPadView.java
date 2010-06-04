@@ -25,6 +25,7 @@ import com.blogspot.rubyug.crawlquery.*;
 import javax.swing.table.DefaultTableModel;
 
 import com.blogspot.rubyug.crawlquerypad.condition.*;
+import com.blogspot.rubyug.crawlquerypad.comparators.*;
 import org.h2.jdbcx.JdbcConnectionPool;
 import java.sql.*;
 
@@ -585,13 +586,13 @@ public class CrawlQueryPadView extends FrameView {
         invokeHighlightUpdate();
       }
     }
-    class CrawlExcecuteWorker extends SwingWorker<Set<LazyLoader>, String> {
+    class CrawlExcecuteWorker extends SwingWorker<LazyLoader[], String> {
       List<Object[]> instructions = null;
       public CrawlExcecuteWorker(List<Object[]> insts) {
         this.instructions = insts;
       }
       @Override
-      protected Set<LazyLoader> doInBackground() throws Exception {
+      protected LazyLoader[] doInBackground() throws Exception {
         publish("initializing...");
         setProgress(0);
 
@@ -609,6 +610,14 @@ public class CrawlQueryPadView extends FrameView {
 
         //Conds
         List<Cond> filters = new ArrayList<Cond>();
+
+        //Sort
+        List sorts = new ArrayList();
+        //default
+        List defaultSort = new ArrayList();
+        defaultSort.add( Fields.Field.ID );
+        defaultSort.add( Orders.Order.ASC );
+        sorts.add( 0, defaultSort );
 
         Connection conn = null;
         try {
@@ -757,12 +766,10 @@ public class CrawlQueryPadView extends FrameView {
             } else if ( inst.equals("INDEX ORDER") ) {
               List fromArr = pool.get((Integer)from);
               if (fromArr.size() == 1) {
-                fromArr.add( 0, Fields.Field.URL ); //apply default
+                fromArr.add( 0, Fields.Field.URL ); //default
                 pool.get(to).add( fromArr );
               } else if (fromArr.size() == 2) {
                 pool.get(to).add( fromArr );
-              } else {
-                //error
               }
 
             } else if ( inst.equals("ORDER ASC") ) {
@@ -782,8 +789,9 @@ public class CrawlQueryPadView extends FrameView {
 
 
             } else if ( inst.equals("QUERY OPTION INDEX") ) {
-              //sort
-
+              List fromArr = pool.get((Integer)from);
+              sorts.addAll(fromArr);
+              
 
             } else if ( inst.equals("REGEX") ) {
               List fromArr = pool.get((Integer)from);
@@ -834,7 +842,45 @@ public class CrawlQueryPadView extends FrameView {
             LazyLoader loader = manager.getLazyLoader(conn, id);
             result.add(loader);
           }
-          return result;
+
+          LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
+          //sort
+          for (Object o: sorts) {
+            List sort = (List)o;
+            Object o1 = sort.get(0);
+            Object o2 = sort.get(1);
+            Fields.Field field = (Fields.Field)o1;
+            if (o2 instanceof Cond) {
+              Cond cond = (Cond)o2;
+              if (field == Fields.Field.URL) {
+                Arrays.sort( resultArr, new Comparator_URL_Match(conn, cond) );
+              } else if (field == Fields.Field.TITLE) {
+
+              } else if (field == Fields.Field.BODY) {
+
+              } else if (field == Fields.Field.TEXT) {
+
+              }
+            } else if (o2 instanceof Orders.Order) {
+              Orders.Order order = (Orders.Order)o2;
+              if (field == Fields.Field.ID) {
+                if (order == Orders.Order.ASC) {
+                  Arrays.sort( resultArr, new Comparator_ID_ASC() );
+                } else {
+                  Arrays.sort( resultArr, new Comparator_ID_DESC() );
+                }
+              } else if (field == Fields.Field.URL) {
+                if (order == Orders.Order.ASC) {
+                  Arrays.sort( resultArr, new Comparator_URL_ASC() );
+                } else {
+                  Arrays.sort( resultArr, new Comparator_URL_DESC() );
+                }
+              } else if (field == Fields.Field.TITLE) {
+                
+              }
+            }
+          }
+          return resultArr;
 
         } finally {
           if (conn != null) {
@@ -852,9 +898,9 @@ public class CrawlQueryPadView extends FrameView {
       }
       @Override
       protected void done() {
-        Set<LazyLoader> result = null;
+        LazyLoader[] resultArr = null;
         try {
-          result = get();
+          resultArr = get();
         } catch (InterruptedException ie) {
         } catch (java.util.concurrent.ExecutionException e) {
           resultPane.setText( ThrowableToString(e) );
@@ -868,7 +914,8 @@ public class CrawlQueryPadView extends FrameView {
           resultTable.removeAll();
           javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
           model.setRowCount(0);
-          for (LazyLoader loader: result) {
+          for (int i=0; i < resultArr.length; i++) {
+            LazyLoader loader = resultArr[i];
             model.addRow(
               new Object[]{
                 loader.getId(),
