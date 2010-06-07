@@ -131,7 +131,7 @@ public class CrawlQueryPadView extends FrameView {
           Statement st = null;
           st = conn.createStatement();
           st.execute(
-            "DROP TABLE response_cache;");
+            "DROP TABLE IF EXISTS response_cache;");
           st.execute(
             "CREATE TABLE response_cache(" +
             "url VARCHAR PRIMARY KEY NOT NULL," +
