@@ -6,10 +6,10 @@ import com.blogspot.rubyug.crawlquerypad.condition.*;
 import java.util.*;
 import java.sql.*;
 
-public class Comparator_URL_Match implements Comparator<LazyLoader> {
+public class Comparator_Cond implements Comparator<LazyLoader> {
   Cond cond       = null;
   Connection conn = null;
-  public Comparator_URL_Match(Connection conn, Cond cond) {
+  public Comparator_Cond(Connection conn, Cond cond) {
     super();
     this.cond = cond;
     this.conn = conn;

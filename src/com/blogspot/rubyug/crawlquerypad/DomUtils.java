@@ -1044,6 +1044,27 @@ public class DomUtils {
             inScript = false;
           } else if (tagName.equals("title")) {
             inTitle = false;
+          } else if ( tagName.equals("br") ||
+                      tagName.equals("div") ||
+                      tagName.equals("p") ||
+                      tagName.equals("center") ||
+                      tagName.equals("table") ||
+                      tagName.equals("tr") ||
+                      tagName.equals("h1") ||
+                      tagName.equals("h2") ||
+                      tagName.equals("h3") ||
+                      tagName.equals("h4") ||
+                      tagName.equals("h5") ||
+                      tagName.equals("h6") ||
+                      tagName.equals("pre") ||
+                      tagName.equals("ol") ||
+                      tagName.equals("ul") ||
+                      tagName.equals("li") ||
+                      tagName.equals("hr")
+                    ) {
+            if (writer != null && !inStyle && !inScript) {
+              writer.write("\n");
+            }
           }
 
         } else if (segment instanceof StartTag) {
@@ -1055,6 +1076,27 @@ public class DomUtils {
             inScript = true;
           } else if (tagName.equals("title") && !startTag.isEmptyElementTag()) {
             inTitle = true;
+          } else if ( tagName.equals("br") ||
+                      tagName.equals("div") ||
+                      tagName.equals("p") ||
+                      tagName.equals("center") ||
+                      tagName.equals("table") ||
+                      tagName.equals("tr") ||
+                      tagName.equals("h1") ||
+                      tagName.equals("h2") ||
+                      tagName.equals("h3") ||
+                      tagName.equals("h4") ||
+                      tagName.equals("h5") ||
+                      tagName.equals("h6") ||
+                      tagName.equals("pre") ||
+                      tagName.equals("ol") ||
+                      tagName.equals("ul") ||
+                      tagName.equals("li") ||
+                      tagName.equals("hr")
+                    ) {
+            if (writer != null && !inStyle && !inScript) {
+              writer.write("\n");
+            }
           }
 
         } else if (segment instanceof CharacterReference) {

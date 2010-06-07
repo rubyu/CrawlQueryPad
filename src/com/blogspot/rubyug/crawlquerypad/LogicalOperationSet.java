@@ -37,14 +37,14 @@ public class LogicalOperationSet extends HashSet<Integer> {
         LazyLoader loader = manager.getLazyLoader(conn, id);
         InputStream in = null;
         try {
-          in           = loader.getContent(conn);
-          State header = loader.getHeader(conn);
+          in           = loader.getContent();
+          State header = loader.getHeader();
           String charset = DomUtils.guessCharset(header, in);
           try {
             in.close();
           } catch (Exception e) {}
 
-          in = loader.getContent(conn);
+          in = loader.getContent();
           Object[] arr = DomUtils.extractHtmlLinks(loader.getUrl(), in, charset);
           Set<String> externalNotFound = (Set<String>)arr[1];
           for (String url : externalNotFound) { //isValidURLs
@@ -62,15 +62,19 @@ public class LogicalOperationSet extends HashSet<Integer> {
           }
         }
         logger.debug("size :" + tempSet.size());
-        logger.debug("Cond Filter");
-        tempSet = tempSet.getCondsFiltered(conds);
-        logger.debug("size :" + tempSet.size());
+
         logger.debug("ResponseCode Filter");
         tempSet = tempSet.getResponseCodeFiltered();
         logger.debug("size :" + tempSet.size());
+        
         logger.debug("ContentType Filter");
         tempSet = tempSet.getContentTypeFiltered();
         logger.debug("size :" + tempSet.size());
+
+        logger.debug("Cond Filter");
+        tempSet = tempSet.getCondsFiltered(conds);
+        logger.debug("size :" + tempSet.size());
+
         
         currentSet = tempSet;
         newSet = newSet.getUnion(tempSet);
@@ -83,7 +87,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     boolean hasRedirect = false;
     for (Integer id : this) {
       LazyLoader loader = manager.getLazyLoader(conn, id);
-      State header = loader.getHeader(conn);
+      State header = loader.getHeader();
       String responseCode = header.getFirstOr(null, "");
       String location     = header.getFirstOr("location", null);
       logger.debug("response code: " + responseCode);
@@ -113,7 +117,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
     for (Integer id : this) {
       LazyLoader loader = manager.getLazyLoader(conn, id);
-      State header = loader.getHeader(conn);
+      State header = loader.getHeader();
       String contentType = header.getFirstOr("content-type", null);
       if (contentType == null ||
           -1 != contentType.indexOf("htm") ||

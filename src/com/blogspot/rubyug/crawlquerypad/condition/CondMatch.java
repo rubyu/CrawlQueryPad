@@ -63,25 +63,22 @@ public class CondMatch implements ICondition {
       logger.debug("value: " + value);
       return this.pattern.matcher(value).find();
 
-    } else if (this.field == Fields.Field.LINKWORD) {
-      throw new RuntimeException("NOT SUPPORTED!");
-      
     } else if (this.field == Fields.Field.TITLE) {
-      String value = loader.getTitle(conn);
+      String value = loader.getTitle();
       logger.debug("value: " + value);
       if (value != null) {
         return this.pattern.matcher(value).find();
       }
 
     } else if (this.field == Fields.Field.BODY) {
-      String value = loader.getContentString(conn);
+      String value = loader.getContentString();
       logger.debug("value: " + value);
       if (value != null) {
         return this.pattern.matcher(value).find();
       }
       
     } else if (this.field == Fields.Field.TEXT) {
-      String value = loader.getText(conn);
+      String value = loader.getText();
       logger.debug("value: " + value);
       if (value != null) {
         return this.pattern.matcher(value).find();

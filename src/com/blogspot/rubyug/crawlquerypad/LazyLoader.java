@@ -15,20 +15,24 @@ public class LazyLoader {
    * 
    */
   protected static Logger logger = LoggerFactory.getLogger(LazyLoader.class);
-  
+
+  private Connection conn = null;
   private Integer id = null;
   private String fullUrl = null;
 
   public LazyLoader(Connection conn, int id, String fullUrl) {
+    this.conn = conn;
     this.id = id;
     this.fullUrl = fullUrl;
     try {
-      createCache(conn, getUrl(), new State());
+      createCache(getUrl(), new State());
     } catch (SQLException e) {
       //IGNORE
     }
   }
-
+  public void setConnection(Connection conn) {
+    this.conn = conn;
+  }
   public Integer getId() {
     return this.id;
   }
@@ -38,10 +42,10 @@ public class LazyLoader {
   public String getFullUrl() {
     return this.fullUrl;
   }
-  public State getState(Connection conn) {
+  public State getState() {
     ResultSet rs = null;
     try {
-      rs = getResultSet(conn, getUrl());
+      rs = getResultSet(getUrl());
       rs.next();
       String ret = rs.getString("state");
       if (null != ret) {
@@ -58,30 +62,30 @@ public class LazyLoader {
     }
     return null;
   }
-  public State getHeader(Connection conn) {
+  public State getHeader() {
     ResultSet rs = null;
     try {
-      rs = getResultSet(conn, getUrl());
+      rs = getResultSet(getUrl());
       rs.next();
       String ret = rs.getString("header");
       if (null != ret) {
         return new State(ret);
       }
-      State state = getState(conn);
+      State state = getState();
       long fail = state.getFirstOr("fail_on_getheader", 0);
       if (0 == fail) {
         try {
           Downloader dl = new Downloader(getUrl());
           //dl.run();
           State header = new State(dl.getHeader());
-          setHeader(conn, getUrl(), header);
+          setHeader(getUrl(), header);
           return header;
           
         } catch (IOException e) {
           logger.debug("download fail on getheader: " + Utils.ThrowableToString(e));
           fail++;
           state.set("fail_on_getheader", fail);
-          setState(conn, getUrl(), state);
+          setState(getUrl(), state);
         }
       }
     } catch (SQLException e) {
@@ -95,29 +99,29 @@ public class LazyLoader {
     }
     return null;
   }
-  public InputStream getContent(Connection conn) {
+  public InputStream getContent() {
     ResultSet rs = null;
     try {
-      rs = getResultSet(conn, getUrl());
+      rs = getResultSet(getUrl());
       rs.next();
       InputStream in = rs.getBinaryStream("content");
       if (null != in) {
         return in;
       }
-      State state = getState(conn);
+      State state = getState();
       long fail = state.getFirstOr("fail_on_getcontent", 0);
       if (0 == fail) {
         try {
           Downloader dl = new Downloader(getUrl());
           dl.run();
-          setContent(conn, getUrl(), dl.getContentStream());
+          setContent(getUrl(), dl.getContentStream());
           return dl.getContentStream();
 
         } catch (IOException e) {
           logger.debug("download fail on getcontent: " + Utils.ThrowableToString(e));
           fail++;
           state.set("fail_on_getcontent", fail);
-          setState(conn, getUrl(), state);
+          setState(getUrl(), state);
         }
       }
     } catch (SQLException e) {
@@ -130,11 +134,11 @@ public class LazyLoader {
     }
     return null;
   }
-  private String guessCharset(Connection conn) {
+  private String guessCharset() {
     InputStream in = null;
     try {
-      in = getContent(conn);
-      State header = getHeader(conn);
+      in = getContent();
+      State header = getHeader();
       if (in != null &&
           header != null) {
         return DomUtils.guessCharset(header, in);
@@ -148,11 +152,11 @@ public class LazyLoader {
       }
     }
   }
-  public String getContentString(Connection conn) {
+  public String getContentString() {
     InputStream in = null;
     try {
-      in = getContent(conn);
-      String charset = guessCharset(conn);
+      in = getContent();
+      String charset = guessCharset();
       if (in != null &&
           charset != null) {
         return Utils.InputStreamToString(in, charset);
@@ -168,11 +172,11 @@ public class LazyLoader {
     }
     return null;
   }
-  public String getTitle(Connection conn) {
+  public String getTitle() {
     InputStream in = null;
     try {
-      in = getContent(conn);
-      String charset = guessCharset(conn);
+      in = getContent();
+      String charset = guessCharset();
       if (in != null &&
           charset != null) {
         return DomUtils.extractText(in, charset, null);
@@ -186,16 +190,17 @@ public class LazyLoader {
     }
     return null;
   }
-  public String getText(Connection conn) {
+  public String getText() {
     InputStream in = null;
     try {
-      in = getContent(conn);
-      String charset = guessCharset(conn);
+      in = getContent();
+      String charset = guessCharset();
       if (in != null &&
           charset != null) {
-        StringWriter writer = new StringWriter();
+        StringWriter sw = new StringWriter();
+        WhitespaceFilterWriter writer = new WhitespaceFilterWriter(sw);
         DomUtils.extractText(in, charset, writer);
-        return writer.toString();
+        return sw.toString();
       }
     } finally {
       if (in != null) {
@@ -206,7 +211,7 @@ public class LazyLoader {
     }
     return null;
   }
-  private void createCache(Connection conn, String url, State state)
+  private void createCache(String url, State state)
   throws SQLException {
     PreparedStatement prep = null;
     StringReader sr = null;
@@ -228,7 +233,7 @@ public class LazyLoader {
       }
     }
   }
-  private void setState(Connection conn, String url, State state)
+  private void setState(String url, State state)
   throws SQLException {
     PreparedStatement prep = null;
     StringReader sr = null;
@@ -250,7 +255,7 @@ public class LazyLoader {
       }
     }
   }
-  private void setHeader(Connection conn, String url, State header)
+  private void setHeader(String url, State header)
   throws SQLException {
     PreparedStatement prep = null;
     StringReader sr = null;
@@ -272,7 +277,7 @@ public class LazyLoader {
       }
     }
   }
-  private void setContent(Connection conn, String url, InputStream content)
+  private void setContent(String url, InputStream content)
   throws SQLException {
     PreparedStatement prep = null;
     try {
@@ -292,7 +297,7 @@ public class LazyLoader {
       }
     }
   }
-  private ResultSet getResultSet(Connection conn, String url)
+  private ResultSet getResultSet(String url)
   throws SQLException {
     PreparedStatement prep = conn.prepareStatement(
         "SELECT * FROM response_cache " +

@@ -28,6 +28,10 @@ import com.blogspot.rubyug.crawlquerypad.condition.*;
 import com.blogspot.rubyug.crawlquerypad.comparators.*;
 import org.h2.jdbcx.JdbcConnectionPool;
 import java.sql.*;
+import java.net.*;
+
+import org.python.core.PyObject;
+import org.python.util.PythonInterpreter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +42,27 @@ import org.slf4j.LoggerFactory;
 public class CrawlQueryPadView extends FrameView {
     protected static Logger logger = LoggerFactory.getLogger(CrawlQueryPadView.class);
 
+    public static String getCurrent() {
+      String top = CrawlQueryPadView.class.getResource("/com/blogspot/rubyug/crawlquerypad/CrawlQueryPadView.class").getFile();
+      try {
+        top = URLDecoder.decode(top, "utf-8");
+      } catch(Exception e){}
+
+      if(top.startsWith("file:/")){
+        top = top.substring(5, top.toLowerCase().indexOf(".jar!/") + 4);
+        if(top.matches("^/[A-Z]:/.*")){
+          top = top.substring(1);
+        }
+        top = top.substring(0, top.lastIndexOf("/"));
+        if(top.matches("^[A-Z]:")){
+          top += "/";
+        }
+        top = top.replace("\\", "/");
+      }else{
+        top = ".";
+      }
+      return top;
+    }
     public CrawlQueryPadView(SingleFrameApplication app) {
         super(app);
 
@@ -65,37 +90,6 @@ public class CrawlQueryPadView extends FrameView {
         idleIcon = resourceMap.getIcon("StatusBar.idleIcon");
         statusAnimationLabel.setIcon(idleIcon);
         progressBar.setVisible(false);
-
-        // connecting action tasks to status bar via TaskMonitor
-        TaskMonitor taskMonitor = new TaskMonitor(getApplication().getContext());
-        taskMonitor.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
-            public void propertyChange(java.beans.PropertyChangeEvent evt) {
-                String propertyName = evt.getPropertyName();
-                if ("started".equals(propertyName)) {
-                    if (!busyIconTimer.isRunning()) {
-                        statusAnimationLabel.setIcon(busyIcons[0]);
-                        busyIconIndex = 0;
-                        busyIconTimer.start();
-                    }
-                    progressBar.setVisible(true);
-                    progressBar.setIndeterminate(true);
-                } else if ("done".equals(propertyName)) {
-                    busyIconTimer.stop();
-                    statusAnimationLabel.setIcon(idleIcon);
-                    progressBar.setVisible(false);
-                    progressBar.setValue(0);
-                } else if ("message".equals(propertyName)) {
-                    String text = (String)(evt.getNewValue());
-                    statusMessageLabel.setText((text == null) ? "" : text);
-                    messageTimer.restart();
-                } else if ("progress".equals(propertyName)) {
-                    int value = (Integer)(evt.getNewValue());
-                    progressBar.setVisible(true);
-                    progressBar.setIndeterminate(false);
-                    progressBar.setValue(value);
-                }
-            }
-        });
 
         queryPane.addCaretListener(new QueryPaneCaretListener());
 
@@ -129,22 +123,133 @@ public class CrawlQueryPadView extends FrameView {
             }
         });
 
+        //DB
         connectionPool = JdbcConnectionPool.create("jdbc:h2:~/.cqpad/main;DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa");
-    }
-
-    public static String ThrowableToString(Throwable t) {
-        Writer writer = new StringWriter();
-        PrintWriter pw = null;
+        Connection conn = null;
         try {
-          pw = new PrintWriter(writer);
-          t.printStackTrace(pw);
-          pw.flush();
+          conn = connectionPool.getConnection();
+          Statement st = null;
+          st = conn.createStatement();
+          st.execute(
+            "DROP TABLE response_cache;");
+          st.execute(
+            "CREATE TABLE response_cache(" +
+            "url VARCHAR PRIMARY KEY NOT NULL," +
+            "state CLOB NOT NULL," +
+            "header CLOB," +
+            "content BLOB" +
+            ");");
+          st.execute(
+            "CREATE TABLE IF NOT EXISTS api_state(" +
+            "key VARCHAR NOT NULL PRIMARY KEY," +
+            "state CLOB NOT NULL" +
+            ");");
+        } catch (SQLException e) {
         } finally {
-          if (pw != null) {
-              pw.close();
+          if (null != conn) {
+            try {
+              conn.close();
+            } catch (Exception e) {}
           }
         }
-        return writer.toString();
+
+        extensions = new ArrayList<String>();
+
+        //exts
+        File exts =  new File( getCurrent() + "/ext" );
+        if (exts.exists() && exts.isDirectory()) {
+          for (File f : exts.listFiles()) {
+            if ( !f.getName().endsWith(".py") &&
+                 !f.getName().endsWith(".jpy") ) {
+               continue;
+            }
+            InputStream in = null;
+            try {
+              logger.info("Adding extension script : " + f.getName());
+              in = new FileInputStream(f);
+              String charset = DomUtils.guessCharsetByUniversalDetector(in);
+              if (null == charset) {
+                charset = "utf-8";
+              }
+              try {
+                  in.close();
+                } catch (Exception e) {}
+              in = new FileInputStream(f);
+              String str = Utils.InputStreamToString(in, charset);
+              PythonInterpreter pyi = new PythonInterpreter();
+              pyi.exec(str);
+              
+              PyObject name = pyi.eval("ext_name()");
+              logger.info("name: " + name);
+              PyObject desc = pyi.eval("ext_description()");
+              logger.info("description: " + desc);
+              /*
+              pyi.set("title", "foo"); //dummy
+              pyi.set("text",  "bar"); //dummy
+              PyObject result = pyi.eval("call(title, text)");
+              logger.debug("result: " + result);
+              */
+              logger.info("OK");
+              extensions.add(str);
+              DefaultComboBoxModel model = (DefaultComboBoxModel)jComboBox1.getModel();
+              model.addElement(name + ": " + desc);
+            } catch (Exception e) {
+              logger.info("NG");
+              logger.error(Utils.ThrowableToString(e));
+            } finally {
+              if (null != in) {
+                try {
+                  in.close();
+                } catch (Exception e) {}
+              }
+            } 
+          }
+        }
+
+        jButton1.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              if (jComboBox1.isEnabled()) {
+                try {
+                  logger.info("call: " + jComboBox1.getSelectedItem());
+                  int index = jComboBox1.getSelectedIndex();
+                  String str = extensions.get(index);
+                  PythonInterpreter pyi = new PythonInterpreter();
+                  pyi.exec(str);
+                  PyObject ext_name = pyi.eval("ext_name()");
+                  //set api
+                  pyi.set("api", new ExtensionAPI(ext_name.toString()));
+
+                  pyi.set("title", titleTextField.getText());
+                  pyi.set("text",  resultPane.getText());
+                  PyObject result = pyi.eval("call(title, text)");
+                  logger.info("result: " + result);
+                } catch (Exception ex) {
+                  logger.error(Utils.ThrowableToString(ex));
+                }
+              }
+            }
+          });
+
+        jButton2.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              if (jComboBox1.isEnabled()) {
+                try {
+                  logger.info("clear state: " + jComboBox1.getSelectedItem());
+                  int index = jComboBox1.getSelectedIndex();
+                  String str = extensions.get(index);
+                  PythonInterpreter pyi = new PythonInterpreter();
+                  pyi.exec(str);
+                  PyObject ext_name = pyi.eval("ext_name()");
+                  ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+                  api.setState(new State());
+                  logger.info("success");
+                } catch (Exception ex) {
+                  logger.error(Utils.ThrowableToString(ex));
+                }
+              }
+            }
+          });
+
     }
 
     void highlightUpdate() {
@@ -274,7 +379,6 @@ public class CrawlQueryPadView extends FrameView {
 
                 } else if ( token.kind == QueryParserConstants.FIELD_ID ||
                             token.kind == QueryParserConstants.FIELD_BODY ||
-                            token.kind == QueryParserConstants.FIELD_LINKWORD ||
                             token.kind == QueryParserConstants.FIELD_TEXT ||
                             token.kind == QueryParserConstants.FIELD_TITLE ||
                             token.kind == QueryParserConstants.FIELD_URL
@@ -319,6 +423,11 @@ public class CrawlQueryPadView extends FrameView {
       model = (DefaultTableModel)resultTable.getModel();
       model.setRowCount(0);
       resultPane.setText("");
+      //apiPanel
+      jButton1.setEnabled(false);
+      jButton2.setEnabled(false);
+      jComboBox1.setEnabled(false);
+      titleTextField.setText("");
 
       QueryParser parser = new QueryParser( new StringReader(queryPane.getText()) );
 
@@ -431,10 +540,6 @@ public class CrawlQueryPadView extends FrameView {
               instructions.add( new Object[] {
                   instructions.size() + 1, "FIELD ID", nodes.indexOf(node.jjtGetParent()), "FIELD_ID"
                 } );
-            } else if ( node instanceof Field_LINKWORD ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD LINKWORD", nodes.indexOf(node.jjtGetParent()), "FIELD_LINKWORD"
-                } );
             } else if ( node instanceof Field_TEXT ) {
               instructions.add( new Object[] {
                   instructions.size() + 1, "FIELD TEXT", nodes.indexOf(node.jjtGetParent()), "FIELD_TEXT"
@@ -519,8 +624,9 @@ public class CrawlQueryPadView extends FrameView {
         }
 
       } catch (Throwable t) {
-        resultPane.setText( ThrowableToString(t) );
         statusMessageLabel.setText("Error!");
+        resultPane.setText( Utils.ThrowableToString(t) );
+        resultPane.setCaretPosition(0);
         return;
       }
 
@@ -531,7 +637,7 @@ public class CrawlQueryPadView extends FrameView {
       }
 
       if ( 0 == throwables.size() ) { //no throwables
-        SwingWorker worker = new CrawlExcecuteWorker(instructions);
+        worker = new CrawlExcecuteWorker(instructions);
         worker.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
           public void propertyChange(java.beans.PropertyChangeEvent evt) {
             String propertyName = evt.getPropertyName();
@@ -579,9 +685,15 @@ public class CrawlQueryPadView extends FrameView {
     }
     class QueryPaneDocumentListener implements DocumentListener {
       public void insertUpdate(DocumentEvent e) {
+        if (null != worker && !worker.isCancelled()) {
+          worker.cancel(true);
+        }
         invokeQueryParse();
       }
       public void removeUpdate(DocumentEvent e) {
+        if (null != worker && !worker.isCancelled()) {
+          worker.cancel(true);
+        }
         invokeQueryParse();
       }
       public void changedUpdate(DocumentEvent e) {
@@ -610,7 +722,7 @@ public class CrawlQueryPadView extends FrameView {
           }
         }
         List<List> pool = new ArrayList<List>();
-        for (int i=0; i < maxPool + 1; i++) {
+        for (int i=0; i < maxPool + 2; i++) {
           pool.add( new ArrayList() );
         }
 
@@ -756,9 +868,6 @@ public class CrawlQueryPadView extends FrameView {
             } else if ( inst.equals("FIELD ID") ) {
               pool.get(to).add( Fields.Field.ID );
 
-            } else if ( inst.equals("FIELD LINKWORD") ) {
-              pool.get(to).add( Fields.Field.LINKWORD );
-
             } else if ( inst.equals("FIELD TEXT") ) {
               pool.get(to).add( Fields.Field.TEXT );
 
@@ -839,36 +948,29 @@ public class CrawlQueryPadView extends FrameView {
             }
 
             System.out.println("--------");
-
           }
+          conn.commit();
 
           Set<LazyLoader> result = new HashSet<LazyLoader>();
-          LogicalOperationSet set = (LogicalOperationSet)pool.get(0).get(0);
-          for (Integer id : set) {
-            LazyLoader loader = manager.getLazyLoader(conn, id);
-            result.add(loader);
+          Object rootObj = pool.get(0).get(0);
+          if (rootObj instanceof LogicalOperationSet) {
+            LogicalOperationSet set = (LogicalOperationSet)rootObj;
+            for (Integer id : set) {
+              LazyLoader loader = manager.getLazyLoader(conn, id);
+              result.add(loader);
+            }
           }
 
           LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
           //sort
           for (Object o: sorts) {
-            List sort = (List)o;
-            Object o1 = sort.get(0);
-            Object o2 = sort.get(1);
-            Fields.Field field = (Fields.Field)o1;
-            if (o2 instanceof Cond) {
-              Cond cond = (Cond)o2;
-              if (field == Fields.Field.URL) {
-                Arrays.sort( resultArr, new Comparator_URL_Match(conn, cond) );
-              } else if (field == Fields.Field.TITLE) {
-
-              } else if (field == Fields.Field.BODY) {
-
-              } else if (field == Fields.Field.TEXT) {
-
-              }
-            } else if (o2 instanceof Orders.Order) {
-              Orders.Order order = (Orders.Order)o2;
+            if (o instanceof Cond) {
+              Cond cond = (Cond)o;
+              Arrays.sort( resultArr, new Comparator_Cond(conn, cond) );
+            } else {
+              List sort = (List)o;
+              Fields.Field field = (Fields.Field)sort.get(0);
+              Orders.Order order = (Orders.Order)sort.get(1);
               if (field == Fields.Field.ID) {
                 if (order == Orders.Order.ASC) {
                   Arrays.sort( resultArr, new Comparator_ID_ASC() );
@@ -882,7 +984,11 @@ public class CrawlQueryPadView extends FrameView {
                   Arrays.sort( resultArr, new Comparator_URL_DESC() );
                 }
               } else if (field == Fields.Field.TITLE) {
-                
+                if (order == Orders.Order.ASC) {
+                  Arrays.sort( resultArr, new Comparator_TITLE_ASC() );
+                } else {
+                  Arrays.sort( resultArr, new Comparator_TITLE_DESC() );
+                }
               }
             }
           }
@@ -907,43 +1013,62 @@ public class CrawlQueryPadView extends FrameView {
         LazyLoader[] resultArr = null;
         try {
           resultArr = get();
-        } catch (InterruptedException ie) {
-        } catch (java.util.concurrent.ExecutionException e) {
-          resultPane.setText( ThrowableToString(e) );
-        }
-        publish("Ready");
-
-        Connection conn = null;
-        try {
-          conn = connectionPool.getConnection();
-
-          StringBuffer bf = new StringBuffer();
-
-          javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
-          model.setRowCount(0);
-          for (int i=0; i < resultArr.length; i++) {
-            LazyLoader loader = resultArr[i];
-            model.addRow(
-              new Object[]{
-                loader.getId(),
-                loader.getFullUrl(),
-                loader.getTitle(conn),
-                loader.getContentString(conn),
-                loader.getText(conn)
-              }
-            );
-            bf.append(loader.getText(conn));
-          }
-          
-          resultPane.setText(bf.toString());
-
+        } catch (java.util.concurrent.CancellationException e) {
+          publish("Cancelled");
         } catch (Exception e) {
-          logger.error(Utils.ThrowableToString(e));
-        } finally {
-          if (conn != null) {
-            try {
-              conn.close();
-            } catch (Exception e) {}
+          publish("Error");
+          logger.debug( Utils.ThrowableToString(e) );
+        }
+        publish("");
+        if (null != resultArr && 0 < resultArr.length) {
+          publish("Ready");
+
+          Connection conn = null;
+          try {
+            conn = connectionPool.getConnection();
+
+            StringBuffer bf = new StringBuffer();
+
+            javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
+            model.setRowCount(0);
+            for (int i=0; i < resultArr.length; i++) {
+              LazyLoader loader = resultArr[i];
+              loader.setConnection(conn);
+              model.addRow(
+                new Object[]{
+                  loader.getId(),
+                  loader.getFullUrl(),
+                  loader.getTitle(),
+                  //loader.getContentString(),
+                  loader.getText()
+                }
+              );
+              bf.append( "----------------------------------------\n" );
+              bf.append( "[" );
+              bf.append( (i + 1) + "/" + resultArr.length + " " + loader.getTitle() );
+              bf.append( "]\n" );
+              bf.append( loader.getText() );
+              bf.append( "\n" );
+            }
+            resultPane.setText(bf.toString());
+            resultPane.setCaretPosition(0);
+            
+            //apiPanel
+            jButton1.setEnabled(true);
+            jButton2.setEnabled(true);
+            jComboBox1.setEnabled(true);
+            if (0 < resultArr.length) {
+              titleTextField.setText(resultArr[0].getTitle());
+            }
+
+          } catch (Exception e) {
+            logger.error(Utils.ThrowableToString(e));
+          } finally {
+            if (conn != null) {
+              try {
+                conn.close();
+              } catch (Exception e) {}
+            }
           }
         }
       }
@@ -980,6 +1105,12 @@ public class CrawlQueryPadView extends FrameView {
     resultTable = new javax.swing.JTable();
     jScrollPane3 = new javax.swing.JScrollPane();
     instTable = new javax.swing.JTable();
+    apiPanel = new javax.swing.JPanel();
+    javax.swing.JSeparator statusPanelSeparator1 = new javax.swing.JSeparator();
+    jButton1 = new javax.swing.JButton();
+    jComboBox1 = new javax.swing.JComboBox();
+    titleTextField = new javax.swing.JTextField();
+    jButton2 = new javax.swing.JButton();
     menuBar = new javax.swing.JMenuBar();
     javax.swing.JMenu fileMenu = new javax.swing.JMenu();
     javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -992,7 +1123,7 @@ public class CrawlQueryPadView extends FrameView {
     progressBar = new javax.swing.JProgressBar();
 
     mainPanel.setName("mainPanel"); // NOI18N
-    mainPanel.setLayout(new javax.swing.BoxLayout(mainPanel, javax.swing.BoxLayout.LINE_AXIS));
+    mainPanel.setLayout(new java.awt.BorderLayout());
 
     jSplitPane1.setBorder(null);
     jSplitPane1.setDividerLocation(120);
@@ -1020,8 +1151,10 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane2.setRightComponent(jScrollPane2);
 
+    jSplitPane3.setBorder(null);
     jSplitPane3.setName("jSplitPane3"); // NOI18N
 
+    jScrollPane4.setBorder(null);
     jScrollPane4.setName("jScrollPane4"); // NOI18N
 
     resultTable.setModel(new javax.swing.table.DefaultTableModel(
@@ -1029,11 +1162,11 @@ public class CrawlQueryPadView extends FrameView {
 
       },
       new String [] {
-        "id", "url", "title", "body", "text"
+        "id", "url", "title", "text"
       }
     ) {
       boolean[] canEdit = new boolean [] {
-        false, false, false, false, false
+        false, false, false, false
       };
 
       public boolean isCellEditable(int rowIndex, int columnIndex) {
@@ -1048,11 +1181,11 @@ public class CrawlQueryPadView extends FrameView {
     resultTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("resultTable.columnModel.title5")); // NOI18N
     resultTable.getColumnModel().getColumn(1).setHeaderValue(resourceMap.getString("resultTable.columnModel.title0")); // NOI18N
     resultTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("resultTable.columnModel.title2")); // NOI18N
-    resultTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("resultTable.columnModel.title3")); // NOI18N
-    resultTable.getColumnModel().getColumn(4).setHeaderValue(resourceMap.getString("resultTable.columnModel.title4")); // NOI18N
+    resultTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("resultTable.columnModel.title4")); // NOI18N
 
     jSplitPane3.setRightComponent(jScrollPane4);
 
+    jScrollPane3.setBorder(null);
     jScrollPane3.setName("jScrollPane3"); // NOI18N
 
     instTable.setModel(new javax.swing.table.DefaultTableModel(
@@ -1089,7 +1222,62 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane1.setRightComponent(jSplitPane2);
 
-    mainPanel.add(jSplitPane1);
+    mainPanel.add(jSplitPane1, java.awt.BorderLayout.CENTER);
+
+    apiPanel.setDoubleBuffered(true);
+    apiPanel.setName("apiPanel"); // NOI18N
+    apiPanel.setPreferredSize(new java.awt.Dimension(100, 45));
+
+    statusPanelSeparator1.setName("statusPanelSeparator1"); // NOI18N
+
+    jButton1.setText(resourceMap.getString("jButton1.text")); // NOI18N
+    jButton1.setEnabled(false);
+    jButton1.setMaximumSize(new java.awt.Dimension(70, 23));
+    jButton1.setMinimumSize(new java.awt.Dimension(70, 23));
+    jButton1.setName("jButton1"); // NOI18N
+
+    jComboBox1.setEnabled(false);
+    jComboBox1.setName("jComboBox1"); // NOI18N
+
+    titleTextField.setText(resourceMap.getString("titleTextField.text")); // NOI18N
+    titleTextField.setName("titleTextField"); // NOI18N
+
+    jButton2.setText(resourceMap.getString("jButton2.text")); // NOI18N
+    jButton2.setEnabled(false);
+    jButton2.setMaximumSize(new java.awt.Dimension(70, 23));
+    jButton2.setMinimumSize(new java.awt.Dimension(70, 23));
+    jButton2.setName("jButton2"); // NOI18N
+
+    javax.swing.GroupLayout apiPanelLayout = new javax.swing.GroupLayout(apiPanel);
+    apiPanel.setLayout(apiPanelLayout);
+    apiPanelLayout.setHorizontalGroup(
+      apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+        .addContainerGap()
+        .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 267, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 192, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addContainerGap())
+      .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 638, Short.MAX_VALUE)
+    );
+    apiPanelLayout.setVerticalGroup(
+      apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+      .addGroup(apiPanelLayout.createSequentialGroup()
+        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 4, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(titleTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        .addContainerGap(12, Short.MAX_VALUE))
+    );
+
+    mainPanel.add(apiPanel, java.awt.BorderLayout.PAGE_END);
 
     menuBar.setName("menuBar"); // NOI18N
 
@@ -1127,11 +1315,11 @@ public class CrawlQueryPadView extends FrameView {
     statusPanel.setLayout(statusPanelLayout);
     statusPanelLayout.setHorizontalGroup(
       statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 707, Short.MAX_VALUE)
+      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 638, Short.MAX_VALUE)
       .addGroup(statusPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addComponent(statusMessageLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 528, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 459, Short.MAX_VALUE)
         .addComponent(progressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(statusAnimationLabel)
@@ -1155,7 +1343,11 @@ public class CrawlQueryPadView extends FrameView {
   }// </editor-fold>//GEN-END:initComponents
 
   // Variables declaration - do not modify//GEN-BEGIN:variables
+  private javax.swing.JPanel apiPanel;
   private javax.swing.JTable instTable;
+  private javax.swing.JButton jButton1;
+  private javax.swing.JButton jButton2;
+  private javax.swing.JComboBox jComboBox1;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
   private javax.swing.JScrollPane jScrollPane3;
@@ -1172,6 +1364,7 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JLabel statusAnimationLabel;
   private javax.swing.JLabel statusMessageLabel;
   private javax.swing.JPanel statusPanel;
+  private javax.swing.JTextField titleTextField;
   // End of variables declaration//GEN-END:variables
 
     private final Timer messageTimer;
@@ -1186,4 +1379,6 @@ public class CrawlQueryPadView extends FrameView {
     private final StyledDocument queryPaneDoc;
     private SimpleNode query = null;
     static JdbcConnectionPool connectionPool = null;
+    private SwingWorker worker = null;
+    private List<String> extensions = null;
 }
