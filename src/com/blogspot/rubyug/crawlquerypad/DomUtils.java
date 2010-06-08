@@ -300,116 +300,7 @@ public class DomUtils {
     }
     return charset;
   }
-  /**
-   * Extracts links of CSS and returns Array of Object.
-   * obj[0] internalLinks
-   *
-   * @param String baseUrl
-   * @param InputStream in
-   * @param String charset
-   * @return Object[]
-   */
-  public static Object[] extractCssLinks(String baseUrl, InputStream in, String charset) {
-    String css = null;
-    try {
-      css = Utils.InputStreamToString(in, charset);
-    } catch(Exception e) {
-      logger.error(Utils.ThrowableToString(e));
-    } finally {
-      if (in != null) {
-        try {
-          in.close();
-        } catch(Exception e) {}
-      }
-    }
-    Object[] ret = rewriteCssLinks(new SnapFinder(), baseUrl, css);
-    Set<String> internalFound = (Set<String>)ret[0];
-    Set<String> internalNotFound = (Set<String>)ret[1];
-    css = (String)ret[2];
 
-    return new Object[]{internalNotFound};
-  }
- /**
-   * Rewrites links of CSS and returns Array of Object and CSS String.
-   * obj[0] internalLinksFound
-   * obj[1] internalLinksNotFound
-   * obj[2] CSS string
-   *
-   * @param SnapFinder sf
-   * @param String baseUrl
-   * @param String css
-   * @return Object[]
-   */
-  public static Object[] rewriteCssLinks(SnapFinder sf, String baseUrl, String css) {
-
-    Set<String> internalLinksFound = new HashSet();
-    Set<String> internalLinksNotFound = new HashSet();
-    Matcher m;
-
-    m = cssCommentPattern.matcher(css);
-    css = m.replaceAll("");
-    
-    m = cssImportPattern.matcher(css);
-    while (m.find()) {
-      String link = m.group(2);
-      if (link.equals("")) {
-        continue;
-      }
-      String quote = null;
-      if (m.group(1).startsWith("\"")) {
-        quote = "\"";
-      } else {
-        quote = "'";
-      }
-      if (!hasDenyScheme(link)) {
-        link = getResolved(baseUrl, link);
-        link = (String)getSplitedByAnchor(link)[0];
-        if (isValidURL(link)) {
-          if (sf.find(link)) {
-            internalLinksFound.add(link);
-            css = css.replace(m.group(0), "@import " + quote + sf.getInternalPath(link) + quote);
-          } else {
-            internalLinksNotFound.add(link);
-            css = css.replace(m.group(0), "@import " + quote + link + quote);
-          }
-        }
-      }
-    }
-    
-    m = cssSrcUrlPattern.matcher(css);
-    while (m.find()) {
-      String type = m.group(1).toLowerCase();
-      String link = m.group(2);
-      if (link.equals("")) {
-        continue;
-      }
-      String quote = null;
-      if (link.startsWith("\"")) {
-        quote = "\"";
-        link = link.substring(1, link.length() - 1);
-      } else if(link.startsWith("'")) {
-        quote = "'";
-        link = link.substring(1, link.length() - 1);
-      } else {
-        quote = "\"";
-      }
-      if (!hasDenyScheme(link)) {
-        link = getResolved(baseUrl, link);
-        link = (String)getSplitedByAnchor(link)[0];
-        if (isValidURL(link)) {
-          if (sf.find(link)) {
-            internalLinksFound.add(link);
-            css = css.replace(m.group(0), type + "(" + quote + sf.getInternalPath(link) + quote + ")");
-          } else {
-            internalLinksNotFound.add(link);
-            css = css.replace(m.group(0), type + "(" + quote + link + quote + ")");
-          }
-        }
-      }
-    }
-
-    return new Object[]{internalLinksFound, internalLinksNotFound, css};
-  }
   /**
    * Checks whether given String has deny scheme or not.
    * @param String s
@@ -639,85 +530,26 @@ public class DomUtils {
     }
     return false;
   }
-  /**
-   * Extracts links of html and returns Array of Object.
-   * obj[0] internalLinksNotFound
-   * obj[0] externalLinksNotFound
-   *
-   * @param String baseUrl
-   * @param InputStream in
-   * @param String charset
-   * @return Object[]
-   */
-  public static Object[] extractHtmlLinks(String baseUrl, InputStream in, String charset) {
+  public static List<String> extractHtmlLinks(String baseUrl, InputStream in, String charset) {
 
-    Object[] ret = rewriteHtmlLinks(new SnapFinder(), baseUrl, in, charset, null);
-    Set<String> internalFound = (Set<String>)ret[0];
-    Set<String> internalNotFound = (Set<String>)ret[1];
-    Set<String> externalFound = (Set<String>)ret[2];
-    Set<String> externalNotFound = (Set<String>)ret[3];
-
-    return new Object[]{internalNotFound, externalNotFound};
-  }
- /**
-   * Rewrites links of html and returns Array of Object.
-   * obj[0] internalLinksFound
-   * obj[1] internalLinksNotFound
-   * obj[2] externalLinksFound
-   * obj[3] externalLinksNotFound
-   *
-   * @param SnapFinder sf
-   * @param String baseUrl
-   * @param InputStream in
-   * @param String charset
-   * @param OutputStream out
-   * @return Object[]
-   */
-  public static Object[] rewriteHtmlLinks(SnapFinder sf, String baseUrl, InputStream in, String charset, OutputStream out) {
-
-    Set<String> internalLinksFound = new HashSet();
-    Set<String> internalLinksNotFound = new HashSet();
-    Set<String> externalLinksFound = new HashSet();
-    Set<String> externalLinksNotFound = new HashSet();
+    Set<String>  externalSet  = new HashSet<String>();
+    List<String> externalList = new ArrayList<String>();
 
     InputStreamReader isr = null;
     try {
       isr = new InputStreamReader(in, charset);
       StreamedSource streamedSource = new StreamedSource(isr);
       int lastSegmentEnd = 0;
-      boolean inHeader = false;
-      boolean inStyle = false;
 
       for (Segment segment: streamedSource) {
-        logger.trace(segment.getDebugInfo());
         if (segment.getEnd() <= lastSegmentEnd) {
-          logger.trace("skip");
           continue;
         }
         lastSegmentEnd = segment.getEnd();
 
-        if (segment instanceof EndTag) {
-          EndTag endTag = (EndTag)segment;
-          String tagName = endTag.getName().toLowerCase();
-          String tagStr = endTag.toString();
-
-          if (tagName.equals("head")) {
-            inHeader = false;
-          } else if (tagName.equals("style")) {
-            inStyle = false;
-          } else if (tagName.equals("base")) {
-            //Does not output end of base tag
-            continue;
-          }
-          //Outputs end tags
-          if (out != null) {
-            out.write(tagStr.getBytes("utf-8"));
-          }
-
-        } else if (segment instanceof StartTag) {
+        if (segment instanceof StartTag) {
           StartTag startTag = (StartTag)segment;
           String tagName = startTag.getName().toLowerCase();
-          String tagStr = startTag.toString();
           //attributes
           Attributes tagAttributes = startTag.getAttributes();
           Map<String, String> tagAtts = new HashMap();
@@ -727,271 +559,21 @@ public class DomUtils {
             }
           }
 
-          if (tagName.equals("head")) {
-            inHeader = true;
-          }
-          if (tagName.equals("body")) {
-            inHeader = false;
-          }
-          if (tagName.equals("style")) {
-            inStyle = true;
-          }
-
-          if (tagName.equals("meta") && inHeader) {
-            String httpEquiv = tagAtts.get("http-equiv");
-            String content = tagAtts.get("content");
-            if (httpEquiv != null &&
-                content != null &&
-                httpEquiv.equals("reflesh")) {
-              Matcher m = metaRefleshPattern.matcher(content);
-              if (m.find()) {
-                String link = m.group(1);
-                if (!hasDenyScheme(link)){
-                  link = getResolved(baseUrl, link);
-                  Object[] ret = getSplitedByAnchor(link);
-                  link = (String)ret[0];
-                  String anchor = (String)ret[1];
-                  if (isValidURL(link)) {
-                    if (sf.find(link)) {
-                      internalLinksFound.add(link);
-                      if (anchor != null) {
-                        tagAtts.put("content", content.replace(m.group(1), sf.getInternalPath(link) + "#" + anchor));
-                      } else {
-                        tagAtts.put("content", content.replace(m.group(1), sf.getInternalPath(link)));
-                      }
-                    } else {
-                      internalLinksNotFound.add(link);
-                      if (anchor != null) {
-                        tagAtts.put("content", content.replace(m.group(1), link + "#" + anchor));
-                      } else {
-                        tagAtts.put("content", content.replace(m.group(1), link));
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-          } else if (tagName.equals("link")) {// && inHeader) {
-            String rel = tagAtts.get("rel");
+          if (tagName.equals("a") ||
+              tagName.equals("area")) { //external
             String link = tagAtts.get("href");
-            if (rel != null && link != null) {
-              if (!hasDenyScheme(link)) {
-                if (rel.equals("stylesheet") ||
-                    rel.equals("shortcut icon") ||
-                    rel.equals("apple-touch-icon")) {
-                  link = getResolved(baseUrl, link);
-                  link = (String)getSplitedByAnchor(link)[0]; //cut off anchor
-                  if (isValidURL(link)) {
-                    if (sf.find(link)) {
-                      internalLinksFound.add(link);
-                      tagAtts.put("href", sf.getInternalPath(link));
-                    } else {
-                      internalLinksNotFound.add(link);
-                      tagAtts.put("href", link);
-                    }
-                  }
+            if (link != null && !hasDenyScheme(link)) {
+              link = getResolved(baseUrl, link);
+              Object[] ret = getSplitedByAnchor(link);
+              link = (String)ret[0];
+              if (isValidURL(link)) {
+                if (externalSet.contains(link)) {
+                  externalSet.add(link);
                 } else {
-                  link = getResolved(baseUrl, link);
-                  link = (String)getSplitedByAnchor(link)[0]; //cut off anchor
-                  if (isValidURL(link)) {
-                    if (sf.find(link)) {
-                      externalLinksFound.add(link);
-                      tagAtts.put("href", sf.getExternalPath(link));
-                    } else {
-                      externalLinksNotFound.add(link);
-                      tagAtts.put("href", link);
-                    }
-                    tagAtts.put("target", "_top");
-                  }
+                  externalList.add(link);
                 }
               }
             }
-
-          } else if (tagName.equals("base")){ // && inHeader) {
-            String link = tagAtts.get("href");
-            if (link != null) {
-              if (!hasDenyScheme(link)) {
-                link = (String)getSplitedByAnchor(link)[0]; //cut off anchor
-                if (isValidURL(link)) {
-                  baseUrl = link;
-                }
-              }
-            }
-            //Does not output start of base tag
-            continue;
-
-          } else if (tagName.equals("![cdata[") ||
-                     tagName.equals("!--")) {
-            if (inStyle) {
-              // Rewrites CSS:
-              //   <style type="text/css">/*<![CDATA[*/
-              //   ...
-              // or
-              //   <style type="text/css">
-              //   <!--
-              //   ...
-
-              Object[] cssExtractResult = rewriteCssLinks(sf, baseUrl, tagStr);
-              Set<String> cssInternalFound = (Set<String>)cssExtractResult[0];
-              Set<String> cssInternalNotFound = (Set<String>)cssExtractResult[1];
-              String css = (String)cssExtractResult[2];
-
-              internalLinksFound.addAll(cssInternalFound);
-              internalLinksNotFound.addAll(cssInternalNotFound);
-              tagStr = css;
-            }
-            if (out != null) {
-              out.write(tagStr.getBytes("utf-8"));
-            }
-            continue;
-
-          } else if (tagName.equals("img") ||
-                     tagName.equals("script") ||
-                     tagName.equals("iframe") ||
-                     tagName.equals("frame") ||
-                     tagName.equals("input") ||
-                     tagName.equals("embed")) { //internal
-            String link = tagAtts.get("src");
-            if (link != null) {
-              if (!hasDenyScheme(link)) {
-                link = getResolved(baseUrl, link);
-                link = (String)getSplitedByAnchor(link)[0]; //cut off anchor
-                if (isValidURL(link)) {
-                  if (sf.find(link)) {
-                    internalLinksFound.add(link);
-                    tagAtts.put("src", sf.getInternalPath(link));
-                  } else {
-                    internalLinksNotFound.add(link);
-                    tagAtts.put("src", link);
-                  }
-                }
-              }
-            }
-
-          } else if (tagName.equals("body") ||
-                     tagName.equals("table") ||
-                     tagName.equals("tr") ||
-                     tagName.equals("td") ||
-                     tagName.equals("th")) { //internal
-            String link = tagAtts.get("background");
-            if (link != null) {
-              if (!hasDenyScheme(link)) {
-                link = getResolved(baseUrl, link);
-                link = (String)getSplitedByAnchor(link)[0]; //cut off anchor
-                if (isValidURL(link)) {
-                  if (sf.find(link)) {
-                    internalLinksFound.add(link);
-                    tagAtts.put("background", sf.getInternalPath(link));
-                  } else {
-                    internalLinksNotFound.add(link);
-                    tagAtts.put("background", link);
-                  }
-                }
-              }
-            }
-
-          } else if (tagName.equals("a") ||
-                     tagName.equals("area")) { //external
-            String link = tagAtts.get("href");
-            if (link != null) {
-              if (!hasDenyScheme(link)) {
-                link = getResolved(baseUrl, link);
-                Object[] ret = getSplitedByAnchor(link);
-                link = (String)ret[0];
-                String anchor = (String)ret[1];
-                if (isValidURL(link)) {
-                  if (sf.find(link)) {
-                    externalLinksFound.add(link);
-                    if (anchor != null) {
-                      tagAtts.put("href", sf.getExternalPath(link) + "#" + anchor);
-                    } else {
-                      tagAtts.put("href", sf.getExternalPath(link));
-                    }
-                  } else {
-                    externalLinksNotFound.add(link);
-                    if (anchor != null) {
-                      tagAtts.put("href", link + "#" + anchor);
-                    } else {
-                      tagAtts.put("href", link);
-                    }
-                  }
-                }
-              }
-              tagAtts.put("target", "_top");
-            }
-          }
-
-          String style = tagAtts.get("style");
-          if (style != null) {
-            // Rewrites CSS:
-            // <div style=" ... ">
-
-            Object[] cssExtractResult = rewriteCssLinks(sf, baseUrl, style);
-            Set<String> cssInternalFound = (Set<String>)cssExtractResult[0];
-            Set<String> cssInternalNotFound = (Set<String>)cssExtractResult[1];
-            String css = (String)cssExtractResult[2];
-
-            internalLinksFound.addAll(cssInternalFound);
-            internalLinksNotFound.addAll(cssInternalNotFound);
-            tagAtts.put("style", css);
-          }
-
-          //Outputs start tags
-          if (out != null) {
-            StringBuffer sb = new StringBuffer();
-            sb.append("<");
-            sb.append(tagName);
-            sb.append(" ");
-            for (String key: tagAtts.keySet()) {
-              sb.append(key);
-              if (key.equals("style")) {
-                sb.append("='");
-                sb.append(tagAtts.get(key));
-                sb.append("' ");
-              } else {
-                sb.append("=\"");
-                sb.append(tagAtts.get(key));
-                sb.append("\" ");
-              }
-            }
-            sb.deleteCharAt(sb.length() - 1);
-            if (startTag.isEmptyElementTag()) {
-              sb.append(" />");
-            } else {
-              sb.append(">");
-            }
-            out.write(sb.toString().getBytes("utf-8"));
-          }
-
-        } else if (segment instanceof CharacterReference) {
-          // HANDLE CHARACTER REFERENCE
-        } else {
-          // HANDLE PLAIN TEXT
-          if (inStyle) {
-            // Rewrites CSS:
-            // <style type="text/css">
-            // body {
-            // ...
-
-            Object[] cssExtractResult = rewriteCssLinks(sf, baseUrl, segment.toString());
-            Set<String> cssInternalFound = (Set<String>)cssExtractResult[0];
-            Set<String> cssInternalNotFound = (Set<String>)cssExtractResult[1];
-            String css = (String)cssExtractResult[2];
-
-            internalLinksFound.addAll(cssInternalFound);
-            internalLinksNotFound.addAll(cssInternalNotFound);
-
-            //Outputs text nodes in style tag
-            if (out != null) {
-              out.write(css.getBytes("utf-8"));
-            }
-            continue;
-          }
-
-          //Outputs text nodes
-          if (out != null) {
-            out.write(segment.toString().getBytes("utf-8"));
           }
         }
       }
@@ -1004,10 +586,7 @@ public class DomUtils {
         } catch(Exception e) {}
       }
     }
-    return new Object[]{
-      internalLinksFound, internalLinksNotFound,
-      externalLinksFound, externalLinksNotFound
-    };
+    return externalList;
   }
   /**
    * Extracts texts from InputStream to OutputStream and returns title.

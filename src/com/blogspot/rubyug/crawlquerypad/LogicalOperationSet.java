@@ -45,8 +45,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
           } catch (Exception e) {}
 
           in = loader.getContent();
-          Object[] arr = DomUtils.extractHtmlLinks(loader.getUrl(), in, charset);
-          Set<String> externalNotFound = (Set<String>)arr[1];
+          List<String> externalNotFound = DomUtils.extractHtmlLinks(loader.getUrl(), in, charset);
           for (String url : externalNotFound) { //isValidURLs
             int newId = manager.register(url);
             if (!newSet.contains(newId)) { //新しいもののみ
@@ -119,7 +118,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
       LazyLoader loader = manager.getLazyLoader(conn, id);
       State header = loader.getHeader();
       String contentType = header.getFirstOr("content-type", null);
-      if (contentType == null ||
+      if (//contentType == null ||
           -1 != contentType.indexOf("htm") ||
           -1 != contentType.indexOf("text/plain") ) {
         newSet.add(id);

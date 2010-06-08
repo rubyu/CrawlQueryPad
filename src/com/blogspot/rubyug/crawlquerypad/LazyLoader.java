@@ -52,6 +52,7 @@ public class LazyLoader {
         return new State(ret);
       }
     } catch (SQLException e) {
+      logger.error(Utils.ThrowableToString(e));
     } catch (UnsupportedEncodingException e) {
     } finally {
       if (null != rs) {
@@ -89,6 +90,7 @@ public class LazyLoader {
         }
       }
     } catch (SQLException e) {
+      logger.error(Utils.ThrowableToString(e));
     } catch (UnsupportedEncodingException e) {
     } finally {
       if (null != rs) {
@@ -125,6 +127,7 @@ public class LazyLoader {
         }
       }
     } catch (SQLException e) {
+      logger.error(Utils.ThrowableToString(e));
     } finally {
       if (null != rs) {
         try {
@@ -173,14 +176,28 @@ public class LazyLoader {
     return null;
   }
   public String getTitle() {
+    ResultSet rs = null;
     InputStream in = null;
     try {
+      rs = getResultSet(getUrl());
+      rs.next();
+      String ret = rs.getString("title");
+      if (null != ret) {
+        return ret;
+      }
       in = getContent();
       String charset = guessCharset();
       if (in != null &&
           charset != null) {
-        return DomUtils.extractText(in, charset, null);
+        String title = DomUtils.extractText(in, charset, null);
+        if (null == title) {
+          title = "";
+        }
+        setTitle(getUrl(), title);
+        return title;
       }
+    } catch (SQLException e) {
+      logger.error(Utils.ThrowableToString(e));
     } finally {
       if (in != null) {
         try {
@@ -191,8 +208,15 @@ public class LazyLoader {
     return null;
   }
   public String getText() {
+    ResultSet rs = null;
     InputStream in = null;
     try {
+      rs = getResultSet(getUrl());
+      rs.next();
+      String ret = rs.getString("text");
+      if (null != ret) {
+        return ret;
+      }
       in = getContent();
       String charset = guessCharset();
       if (in != null &&
@@ -200,8 +224,12 @@ public class LazyLoader {
         StringWriter sw = new StringWriter();
         WhitespaceFilterWriter writer = new WhitespaceFilterWriter(sw);
         DomUtils.extractText(in, charset, writer);
-        return sw.toString();
+        String text = sw.toString();
+        setText(getUrl(), text);
+        return text;
       }
+    } catch (SQLException e) {
+      logger.error(Utils.ThrowableToString(e));
     } finally {
       if (in != null) {
         try {
@@ -296,6 +324,30 @@ public class LazyLoader {
         } catch (Exception e) {}
       }
     }
+  }
+  private void setTitle(String url, String title)
+  throws SQLException {
+    PreparedStatement prep = null;
+    prep = conn.prepareStatement(
+        "UPDATE response_cache " +
+        "SET title = ? " +
+        "WHERE url = ? "
+        );
+    prep.setString(1, title);
+    prep.setString(2, url);
+    prep.execute();
+  }
+  private void setText(String url, String text)
+  throws SQLException {
+    PreparedStatement prep = null;
+    prep = conn.prepareStatement(
+        "UPDATE response_cache " +
+        "SET text = ? " +
+        "WHERE url = ? "
+        );
+    prep.setString(1, text);
+    prep.setString(2, url);
+    prep.execute();
   }
   private ResultSet getResultSet(String url)
   throws SQLException {

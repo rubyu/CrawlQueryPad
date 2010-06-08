@@ -125,7 +125,6 @@ public class CrawlQueryPadView extends FrameView {
 
         //DB
         connectionPool = JdbcConnectionPool.create("jdbc:h2:~/.cqpad/main;DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa");
-        Connection conn = null;
         try {
           conn = connectionPool.getConnection();
           Statement st = null;
@@ -133,10 +132,12 @@ public class CrawlQueryPadView extends FrameView {
           st.execute(
             "DROP TABLE IF EXISTS response_cache;");
           st.execute(
-            "CREATE TABLE response_cache(" +
+            "CREATE TABLE IF NOT EXISTS response_cache(" +
             "url VARCHAR PRIMARY KEY NOT NULL," +
             "state CLOB NOT NULL," +
             "header CLOB," +
+            "title CLOB," +
+            "text CLOB," +
             "content BLOB" +
             ");");
           st.execute(
@@ -145,16 +146,10 @@ public class CrawlQueryPadView extends FrameView {
             "state CLOB NOT NULL" +
             ");");
         } catch (SQLException e) {
-        } finally {
-          if (null != conn) {
-            try {
-              conn.close();
-            } catch (Exception e) {}
-          }
+          logger.error(Utils.ThrowableToString(e));
         }
 
         extensions = new ArrayList<String>();
-
         //exts
         File exts =  new File( getCurrent() + "/ext" );
         if (exts.exists() && exts.isDirectory()) {
@@ -250,6 +245,84 @@ public class CrawlQueryPadView extends FrameView {
             }
           });
 
+          crawlButton.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              invokeQueryParse(true);
+            }
+          });
+
+          urlButton.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "\"\" ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
+          setButton.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "> $ // ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
+          filterButton.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "> # // ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
+          depth1Button.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "> 1 ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
+          depth2Button.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "> 2 ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
+          sortButton.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Document doc = queryPane.getDocument();
+              StyleContext sc = new StyleContext();
+              int pos = queryPane.getCaretPosition();
+              try {
+                doc.insertString(pos, "> @ url ASC ", sc.getStyle(StyleContext.DEFAULT_STYLE));
+              } catch (BadLocationException ex) {
+                logger.error(Utils.ThrowableToString(ex));
+              }
+            }
+          });
     }
 
     void highlightUpdate() {
@@ -414,7 +487,7 @@ public class CrawlQueryPadView extends FrameView {
         queryPaneDoc.addUndoableEditListener(undomanager);
 
     }
-    void queryParse() {
+    void queryParse(boolean doCrawl) {
       
       //clear
       javax.swing.table.DefaultTableModel model;
@@ -636,7 +709,17 @@ public class CrawlQueryPadView extends FrameView {
         model.addRow(arr);
       }
 
-      if ( 0 == throwables.size() ) { //no throwables
+      if ( instructions.size() < 2 ||  //empty
+           0 != throwables.size()      //has error
+         ) {
+        crawlButton.setEnabled(false);
+      } else {
+        crawlButton.setEnabled(true);
+      }
+
+      if ( 0 == throwables.size() && //no error
+           doCrawl
+         ) {
         worker = new CrawlExcecuteWorker(instructions);
         worker.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
           public void propertyChange(java.beans.PropertyChangeEvent evt) {
@@ -675,26 +758,29 @@ public class CrawlQueryPadView extends FrameView {
         }
       });
     }
-    void invokeQueryParse() {
+    void invokeQueryParse(boolean doCrawl) {
+      final boolean _doCrawl = doCrawl;
       SwingUtilities.invokeLater(new Runnable() {
         public void run() {
-          queryParse();
+          queryParse(_doCrawl);
           highlightUpdate();
         }
       });
     }
     class QueryPaneDocumentListener implements DocumentListener {
       public void insertUpdate(DocumentEvent e) {
-        if (null != worker && !worker.isCancelled()) {
+        if (null != worker && !worker.isDone() && !worker.isCancelled()) {
+          workerStop = true;
           worker.cancel(true);
         }
-        invokeQueryParse();
+        invokeQueryParse(false);
       }
       public void removeUpdate(DocumentEvent e) {
-        if (null != worker && !worker.isCancelled()) {
+        if (null != worker && !worker.isDone() && !worker.isCancelled()) {
+          workerStop = true;
           worker.cancel(true);
         }
-        invokeQueryParse();
+        invokeQueryParse(false);
       }
       public void changedUpdate(DocumentEvent e) {
       }
@@ -716,7 +802,7 @@ public class CrawlQueryPadView extends FrameView {
 
         int maxPool = 0;
         for (Object[] instruction : instructions) {
-          Integer to   = (Integer)instruction[2];
+          Integer to = (Integer)instruction[2];
           if (maxPool < to) {
             maxPool = to;
           }
@@ -731,276 +817,275 @@ public class CrawlQueryPadView extends FrameView {
 
         //Sort
         List sorts = new ArrayList();
-        //default
+        //Sort default
         List defaultSort = new ArrayList();
         defaultSort.add( Fields.Field.ID );
         defaultSort.add( Orders.Order.ASC );
         sorts.add( 0, defaultSort );
 
-        Connection conn = null;
-        try {
+        if (null == conn) {
           conn = connectionPool.getConnection();
-          LazyLoaderManager manager = new LazyLoaderManager(conn);
+        }
 
-          for (Object[] instruction : instructions) {
-            Integer id   = (Integer)instruction[0];
-            String  inst = (String) instruction[1];
-            Integer to   = (Integer)instruction[2];
-            Object  from = instruction[3];
+        LazyLoaderManager manager = new LazyLoaderManager(conn);
 
-            publish( "(" + id + "/" + instructions.size() + ")" + " [" + inst + "] " + to + ", " + from );
-            setProgress(100 * id / instructions.size());
+        for (Object[] instruction : instructions) {
+          Integer id   = (Integer)instruction[0];
+          String  inst = (String) instruction[1];
+          Integer to   = (Integer)instruction[2];
+          Object  from = instruction[3];
 
-            System.out.println("--DUMP--");
-            System.out.println("id: " + id);
-            System.out.println("inst: " + inst);
-            System.out.println("to: " + to);
-            if (from instanceof Integer) {
-              System.out.println("from: " + from);
-              List fArr = pool.get((Integer)from);
-              for (Object o : fArr) {
-                System.out.println(o);
-              }
-            } else {
-              System.out.println("from(value): " + from);
-            }
-
-            if ( inst.equals("CONDITION") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).add( new Cond((ICondition)fromArr.get(0)) );
-
-            } else if ( inst.equals("CONDITION AND") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).add( new CondAND((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
-
-            } else if ( inst.equals("CONDITION MATCH") ) {
-              List fromArr = pool.get((Integer)from);
-              Fields.Field field = null;
-              String pattern = null;
-              String option = null;
-              for (int i=0; i < fromArr.size(); i++) {
-                Object o = fromArr.get(i);
-                if (o instanceof Fields.Field) {
-                  field = (Fields.Field)o;
-                } else if (null == pattern) {
-                  pattern = (String)o;
-                } else if (null == option) {
-                  option = (String)o;
-                }
-              }
-              if (null == field) {
-                field = Fields.Field.URL; //apply default
-              }
-              pool.get(to).add( new CondMatch(field, pattern, option) );
-
-            } else if ( inst.equals("CONDITION OR") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).add( new CondOR((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
-
-            } else if ( inst.equals("CONDITION UNARY NOT") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).add( new CondNOT((ICondition)fromArr.get(0)) );
-
-
-            } else if ( inst.equals("CRAWL") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).add( fromArr.get(0) ); //copy one
-              //reset filters
-              filters.clear();
-
-            } else if ( inst.equals("CRAWL EXECUTE") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              int depth = (Integer)fromArr.get(0);
-              LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-              set = set.getCrawled(depth, filters);
-              toArr.clear();
-              toArr.add(set);
-              
-            } else if ( inst.equals("CRAWL FILTER") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-              LogicalOperationSet newSet = set.getCondsFiltered(fromArr);
-              toArr.clear();
-              toArr.add(newSet);
-
-            } else if ( inst.equals("CRAWL OP DIFFERENCE") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
-              LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
-              toArr.add(set1.getDifference(set2));
-
-            } else if ( inst.equals("CRAWL OP INTERSECTION") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
-              LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
-              toArr.add(set1.getIntersection(set2));
-
-            } else if ( inst.equals("CRAWL OP SYMMETRIC DIFFERENCE") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
-              LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
-              toArr.add(set1.getSymmetricDifference(set2));
-
-            } else if ( inst.equals("CRAWL OP UNION") ) {
-              List fromArr = pool.get((Integer)from);
-              List toArr   = pool.get(to);
-              LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
-              LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
-              toArr.add(set1.getUnion(set2));
-
-            } else if ( inst.equals("CRAWL SET CONDITION") ) {
-              List fromArr = pool.get((Integer)from);
-              filters.add((Cond)fromArr.get(0));
-              
-
-            } else if ( inst.equals("DEPTH VALUE") ) {
-              int depth = Integer.parseInt( (String)from );
-              pool.get(to).add( depth );
-
-            } else if ( inst.equals("FIELD BODY") ) {
-              pool.get(to).add( Fields.Field.BODY );
-
-            } else if ( inst.equals("FIELD ID") ) {
-              pool.get(to).add( Fields.Field.ID );
-
-            } else if ( inst.equals("FIELD TEXT") ) {
-              pool.get(to).add( Fields.Field.TEXT );
-
-            } else if ( inst.equals("FIELD TITLE") ) {
-              pool.get(to).add( Fields.Field.TITLE );
-
-            } else if ( inst.equals("FIELD URL") ) {
-              pool.get(to).add( Fields.Field.URL );
-
-
-            } else if ( inst.equals("INDEX ORDER") ) {
-              List fromArr = pool.get((Integer)from);
-              if (fromArr.size() == 1) {
-                fromArr.add( 0, Fields.Field.URL ); //default
-                pool.get(to).add( fromArr );
-              } else if (fromArr.size() == 2) {
-                pool.get(to).add( fromArr );
-              }
-
-            } else if ( inst.equals("ORDER ASC") ) {
-              pool.get(to).add( Orders.Order.ASC );
-
-            } else if ( inst.equals("ORDER DESC") ) {
-              pool.get(to).add( Orders.Order.DESC );
-
-
-            } else if ( inst.equals("QUERY") ) {
-              List fromArr = pool.get((Integer)from);
-              if (0 == fromArr.size()) {
-                pool.get(0).add( new HashSet() );
-              } else {
-                pool.get(0).add( fromArr.get(0) ); //copy one
-              }
-
-
-            } else if ( inst.equals("QUERY OPTION INDEX") ) {
-              List fromArr = pool.get((Integer)from);
-              sorts.addAll(fromArr);
-              
-
-            } else if ( inst.equals("REGEX") ) {
-              List fromArr = pool.get((Integer)from);
-              pool.get(to).addAll( fromArr ); //copy all
-
-            } else if ( inst.equals("REGEX OPTION VALUE") ) {
-              String s = (String)from;
-              pool.get(to).add( s );
-
-            } else if ( inst.equals("REGEX PATTERN VALUE") ) {
-              String s = (String)from;
-              s = s.substring(1, s.length() - 1);
-              pool.get(to).add( s );
-
-
-            } else if ( inst.equals("URL") ) {
-              String s = (String)from;
-              s = s.substring(1, s.length() - 1);
-              pool.get(to).add( s );
-
-            } else if ( inst.equals("URLS") ) {
-              List fromArr = pool.get((Integer)from);
-              LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
-              for (Object o : fromArr) {
-                String fullUrl = (String)o;
-                if (!DomUtils.isValidURL(fullUrl)) {
-                  continue;
-                }
-                int urlId = manager.register(fullUrl);
-                urls.add( urlId );
-              }
-              urls = urls.getResponseCodeFiltered();
-              urls = urls.getContentTypeFiltered();
-              pool.get(to).add( urls );
-
-
-            } else {
-              throw new Exception("Unknown Class!");
-            }
-
-            System.out.println("--------");
-          }
-          conn.commit();
-
-          Set<LazyLoader> result = new HashSet<LazyLoader>();
-          Object rootObj = pool.get(0).get(0);
-          if (rootObj instanceof LogicalOperationSet) {
-            LogicalOperationSet set = (LogicalOperationSet)rootObj;
-            for (Integer id : set) {
-              LazyLoader loader = manager.getLazyLoader(conn, id);
-              result.add(loader);
-            }
+          if (workerStop) {
+            workerStop = false;
+            throw new java.util.concurrent.CancellationException();
           }
 
-          LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
-          //sort
-          for (Object o: sorts) {
-            if (o instanceof Cond) {
-              Cond cond = (Cond)o;
-              Arrays.sort( resultArr, new Comparator_Cond(conn, cond) );
-            } else {
-              List sort = (List)o;
-              Fields.Field field = (Fields.Field)sort.get(0);
-              Orders.Order order = (Orders.Order)sort.get(1);
-              if (field == Fields.Field.ID) {
-                if (order == Orders.Order.ASC) {
-                  Arrays.sort( resultArr, new Comparator_ID_ASC() );
-                } else {
-                  Arrays.sort( resultArr, new Comparator_ID_DESC() );
-                }
-              } else if (field == Fields.Field.URL) {
-                if (order == Orders.Order.ASC) {
-                  Arrays.sort( resultArr, new Comparator_URL_ASC() );
-                } else {
-                  Arrays.sort( resultArr, new Comparator_URL_DESC() );
-                }
-              } else if (field == Fields.Field.TITLE) {
-                if (order == Orders.Order.ASC) {
-                  Arrays.sort( resultArr, new Comparator_TITLE_ASC() );
-                } else {
-                  Arrays.sort( resultArr, new Comparator_TITLE_DESC() );
-                }
+          publish( "(" + id + "/" + instructions.size() + ")" + " [" + inst + "] " + to + ", " + from );
+          setProgress(100 * id / instructions.size());
+
+          System.out.println("--DUMP--");
+          System.out.println("id: " + id);
+          System.out.println("inst: " + inst);
+          System.out.println("to: " + to);
+          if (from instanceof Integer) {
+            System.out.println("from: " + from);
+            List fArr = pool.get((Integer)from);
+            for (Object o : fArr) {
+              System.out.println(o);
+            }
+          } else {
+            System.out.println("from(value): " + from);
+          }
+
+          if ( inst.equals("CONDITION") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).add( new Cond((ICondition)fromArr.get(0)) );
+
+          } else if ( inst.equals("CONDITION AND") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).add( new CondAND((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
+
+          } else if ( inst.equals("CONDITION MATCH") ) {
+            List fromArr = pool.get((Integer)from);
+            Fields.Field field = null;
+            String pattern = null;
+            String option = null;
+            for (int i=0; i < fromArr.size(); i++) {
+              Object o = fromArr.get(i);
+              if (o instanceof Fields.Field) {
+                field = (Fields.Field)o;
+              } else if (null == pattern) {
+                pattern = (String)o;
+              } else if (null == option) {
+                option = (String)o;
               }
             }
-          }
-          return resultArr;
+            if (null == field) {
+              field = Fields.Field.URL; //apply default
+            }
+            pool.get(to).add( new CondMatch(field, pattern, option) );
 
-        } finally {
-          if (conn != null) {
-            try {
-              conn.close();
-            } catch (Exception e) {}
+          } else if ( inst.equals("CONDITION OR") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).add( new CondOR((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
+
+          } else if ( inst.equals("CONDITION UNARY NOT") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).add( new CondNOT((ICondition)fromArr.get(0)) );
+
+
+          } else if ( inst.equals("CRAWL") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).add( fromArr.get(0) ); //copy one
+            //reset filters
+            filters.clear();
+
+          } else if ( inst.equals("CRAWL EXECUTE") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            int depth = (Integer)fromArr.get(0);
+            LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
+            set = set.getCrawled(depth, filters);
+            toArr.clear();
+            toArr.add(set);
+
+          } else if ( inst.equals("CRAWL FILTER") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
+            LogicalOperationSet newSet = set.getCondsFiltered(fromArr);
+            toArr.clear();
+            toArr.add(newSet);
+
+          } else if ( inst.equals("CRAWL OP DIFFERENCE") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
+            LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
+            toArr.add(set1.getDifference(set2));
+
+          } else if ( inst.equals("CRAWL OP INTERSECTION") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
+            LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
+            toArr.add(set1.getIntersection(set2));
+
+          } else if ( inst.equals("CRAWL OP SYMMETRIC DIFFERENCE") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
+            LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
+            toArr.add(set1.getSymmetricDifference(set2));
+
+          } else if ( inst.equals("CRAWL OP UNION") ) {
+            List fromArr = pool.get((Integer)from);
+            List toArr   = pool.get(to);
+            LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
+            LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
+            toArr.add(set1.getUnion(set2));
+
+          } else if ( inst.equals("CRAWL SET CONDITION") ) {
+            List fromArr = pool.get((Integer)from);
+            filters.add((Cond)fromArr.get(0));
+
+
+          } else if ( inst.equals("DEPTH VALUE") ) {
+            int depth = Integer.parseInt( (String)from );
+            pool.get(to).add( depth );
+
+          } else if ( inst.equals("FIELD BODY") ) {
+            pool.get(to).add( Fields.Field.BODY );
+
+          } else if ( inst.equals("FIELD ID") ) {
+            pool.get(to).add( Fields.Field.ID );
+
+          } else if ( inst.equals("FIELD TEXT") ) {
+            pool.get(to).add( Fields.Field.TEXT );
+
+          } else if ( inst.equals("FIELD TITLE") ) {
+            pool.get(to).add( Fields.Field.TITLE );
+
+          } else if ( inst.equals("FIELD URL") ) {
+            pool.get(to).add( Fields.Field.URL );
+
+
+          } else if ( inst.equals("INDEX ORDER") ) {
+            List fromArr = pool.get((Integer)from);
+            if (fromArr.size() == 1) {
+              fromArr.add( 0, Fields.Field.URL ); //default
+              pool.get(to).add( fromArr );
+            } else if (fromArr.size() == 2) {
+              pool.get(to).add( fromArr );
+            }
+
+          } else if ( inst.equals("ORDER ASC") ) {
+            pool.get(to).add( Orders.Order.ASC );
+
+          } else if ( inst.equals("ORDER DESC") ) {
+            pool.get(to).add( Orders.Order.DESC );
+
+
+          } else if ( inst.equals("QUERY") ) {
+            List fromArr = pool.get((Integer)from);
+            if (0 == fromArr.size()) {
+              pool.get(0).add( new HashSet() );
+            } else {
+              pool.get(0).add( fromArr.get(0) ); //copy one
+            }
+
+
+          } else if ( inst.equals("QUERY OPTION INDEX") ) {
+            List fromArr = pool.get((Integer)from);
+            sorts.addAll(fromArr);
+
+
+          } else if ( inst.equals("REGEX") ) {
+            List fromArr = pool.get((Integer)from);
+            pool.get(to).addAll( fromArr ); //copy all
+
+          } else if ( inst.equals("REGEX OPTION VALUE") ) {
+            String s = (String)from;
+            pool.get(to).add( s );
+
+          } else if ( inst.equals("REGEX PATTERN VALUE") ) {
+            String s = (String)from;
+            s = s.substring(1, s.length() - 1);
+            pool.get(to).add( s );
+
+
+          } else if ( inst.equals("URL") ) {
+            String s = (String)from;
+            s = s.substring(1, s.length() - 1);
+            pool.get(to).add( s );
+
+          } else if ( inst.equals("URLS") ) {
+            List fromArr = pool.get((Integer)from);
+            LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
+            for (Object o : fromArr) {
+              String fullUrl = (String)o;
+              if (!DomUtils.isValidURL(fullUrl)) {
+                continue;
+              }
+              int urlId = manager.register(fullUrl);
+              urls.add( urlId );
+            }
+            urls = urls.getResponseCodeFiltered();
+            urls = urls.getContentTypeFiltered();
+            pool.get(to).add( urls );
+
+
+          } else {
+            throw new Exception("Unknown Class!");
+          }
+
+          System.out.println("--------");
+        }
+        conn.commit();
+
+        Set<LazyLoader> result = new HashSet<LazyLoader>();
+        Object rootObj = pool.get(0).get(0);
+        if (rootObj instanceof LogicalOperationSet) {
+          LogicalOperationSet set = (LogicalOperationSet)rootObj;
+          for (Integer id : set) {
+            LazyLoader loader = manager.getLazyLoader(conn, id);
+            result.add(loader);
           }
         }
+
+        LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
+        //sort
+        for (Object o: sorts) {
+          if (o instanceof Cond) {
+            Cond cond = (Cond)o;
+            Arrays.sort( resultArr, new Comparator_Cond(conn, cond) );
+          } else {
+            List sort = (List)o;
+            Fields.Field field = (Fields.Field)sort.get(0);
+            Orders.Order order = (Orders.Order)sort.get(1);
+            if (field == Fields.Field.ID) {
+              if (order == Orders.Order.ASC) {
+                Arrays.sort( resultArr, new Comparator_ID_ASC() );
+              } else {
+                Arrays.sort( resultArr, new Comparator_ID_DESC() );
+              }
+            } else if (field == Fields.Field.URL) {
+              if (order == Orders.Order.ASC) {
+                Arrays.sort( resultArr, new Comparator_URL_ASC() );
+              } else {
+                Arrays.sort( resultArr, new Comparator_URL_DESC() );
+              }
+            } else if (field == Fields.Field.TITLE) {
+              if (order == Orders.Order.ASC) {
+                Arrays.sort( resultArr, new Comparator_TITLE_ASC() );
+              } else {
+                Arrays.sort( resultArr, new Comparator_TITLE_DESC() );
+              }
+            }
+          }
+        }
+        return resultArr;
+
       }
       @Override
       protected void process(List<String> chunks) {
@@ -1023,17 +1108,13 @@ public class CrawlQueryPadView extends FrameView {
         if (null != resultArr && 0 < resultArr.length) {
           publish("Ready");
 
-          Connection conn = null;
           try {
-            conn = connectionPool.getConnection();
-
             StringBuffer bf = new StringBuffer();
 
             javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
             model.setRowCount(0);
             for (int i=0; i < resultArr.length; i++) {
               LazyLoader loader = resultArr[i];
-              loader.setConnection(conn);
               model.addRow(
                 new Object[]{
                   loader.getId(),
@@ -1062,13 +1143,10 @@ public class CrawlQueryPadView extends FrameView {
             }
 
           } catch (Exception e) {
-            logger.error(Utils.ThrowableToString(e));
-          } finally {
-            if (conn != null) {
-              try {
-                conn.close();
-              } catch (Exception e) {}
-            }
+            String error = Utils.ThrowableToString(e);
+            logger.error(error);
+            resultPane.setText(error);
+            resultPane.setCaretPosition(0);
           }
         }
       }
@@ -1094,6 +1172,14 @@ public class CrawlQueryPadView extends FrameView {
   private void initComponents() {
 
     mainPanel = new javax.swing.JPanel();
+    jPanel1 = new javax.swing.JPanel();
+    crawlButton = new javax.swing.JButton();
+    urlButton = new javax.swing.JButton();
+    depth1Button = new javax.swing.JButton();
+    depth2Button = new javax.swing.JButton();
+    setButton = new javax.swing.JButton();
+    filterButton = new javax.swing.JButton();
+    sortButton = new javax.swing.JButton();
     jSplitPane1 = new javax.swing.JSplitPane();
     jScrollPane1 = new javax.swing.JScrollPane();
     queryPane = new javax.swing.JTextPane();
@@ -1125,6 +1211,69 @@ public class CrawlQueryPadView extends FrameView {
     mainPanel.setName("mainPanel"); // NOI18N
     mainPanel.setLayout(new java.awt.BorderLayout());
 
+    jPanel1.setName("jPanel1"); // NOI18N
+
+    org.jdesktop.application.ResourceMap resourceMap = org.jdesktop.application.Application.getInstance(com.blogspot.rubyug.crawlquerypad.CrawlQueryPadApp.class).getContext().getResourceMap(CrawlQueryPadView.class);
+    crawlButton.setText(resourceMap.getString("crawlButton.text")); // NOI18N
+    crawlButton.setEnabled(false);
+    crawlButton.setName("crawlButton"); // NOI18N
+
+    urlButton.setText(resourceMap.getString("urlButton.text")); // NOI18N
+    urlButton.setName("urlButton"); // NOI18N
+
+    depth1Button.setText(resourceMap.getString("depth1Button.text")); // NOI18N
+    depth1Button.setName("depth1Button"); // NOI18N
+
+    depth2Button.setText(resourceMap.getString("depth2Button.text")); // NOI18N
+    depth2Button.setName("depth2Button"); // NOI18N
+
+    setButton.setText(resourceMap.getString("setButton.text")); // NOI18N
+    setButton.setName("setButton"); // NOI18N
+
+    filterButton.setText(resourceMap.getString("filterButton.text")); // NOI18N
+    filterButton.setName("filterButton"); // NOI18N
+
+    sortButton.setText(resourceMap.getString("sortButton.text")); // NOI18N
+    sortButton.setName("sortButton"); // NOI18N
+
+    javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+    jPanel1.setLayout(jPanel1Layout);
+    jPanel1Layout.setHorizontalGroup(
+      jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+        .addContainerGap()
+        .addComponent(urlButton)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(setButton)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(filterButton)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(depth1Button)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(depth2Button)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(sortButton)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 210, Short.MAX_VALUE)
+        .addComponent(crawlButton)
+        .addContainerGap())
+    );
+    jPanel1Layout.setVerticalGroup(
+      jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(crawlButton)
+          .addComponent(urlButton)
+          .addComponent(setButton)
+          .addComponent(filterButton)
+          .addComponent(depth1Button)
+          .addComponent(depth2Button)
+          .addComponent(sortButton))
+        .addContainerGap())
+    );
+
+    mainPanel.add(jPanel1, java.awt.BorderLayout.PAGE_START);
+
     jSplitPane1.setBorder(null);
     jSplitPane1.setDividerLocation(120);
     jSplitPane1.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
@@ -1136,8 +1285,9 @@ public class CrawlQueryPadView extends FrameView {
     queryPane.setName("queryPane"); // NOI18N
     jScrollPane1.setViewportView(queryPane);
 
-    jSplitPane1.setTopComponent(jScrollPane1);
+    jSplitPane1.setLeftComponent(jScrollPane1);
 
+    jSplitPane2.setBorder(null);
     jSplitPane2.setDividerLocation(300);
     jSplitPane2.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
     jSplitPane2.setName("jSplitPane2"); // NOI18N
@@ -1175,7 +1325,6 @@ public class CrawlQueryPadView extends FrameView {
     });
     resultTable.setName("resultTable"); // NOI18N
     jScrollPane4.setViewportView(resultTable);
-    org.jdesktop.application.ResourceMap resourceMap = org.jdesktop.application.Application.getInstance(com.blogspot.rubyug.crawlquerypad.CrawlQueryPadApp.class).getContext().getResourceMap(CrawlQueryPadView.class);
     resultTable.getColumnModel().getColumn(0).setResizable(false);
     resultTable.getColumnModel().getColumn(0).setPreferredWidth(20);
     resultTable.getColumnModel().getColumn(0).setHeaderValue(resourceMap.getString("resultTable.columnModel.title5")); // NOI18N
@@ -1220,11 +1369,10 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane2.setLeftComponent(jSplitPane3);
 
-    jSplitPane1.setRightComponent(jSplitPane2);
+    jSplitPane1.setBottomComponent(jSplitPane2);
 
     mainPanel.add(jSplitPane1, java.awt.BorderLayout.CENTER);
 
-    apiPanel.setDoubleBuffered(true);
     apiPanel.setName("apiPanel"); // NOI18N
     apiPanel.setPreferredSize(new java.awt.Dimension(100, 45));
 
@@ -1344,10 +1492,15 @@ public class CrawlQueryPadView extends FrameView {
 
   // Variables declaration - do not modify//GEN-BEGIN:variables
   private javax.swing.JPanel apiPanel;
+  private javax.swing.JButton crawlButton;
+  private javax.swing.JButton depth1Button;
+  private javax.swing.JButton depth2Button;
+  private javax.swing.JButton filterButton;
   private javax.swing.JTable instTable;
   private javax.swing.JButton jButton1;
   private javax.swing.JButton jButton2;
   private javax.swing.JComboBox jComboBox1;
+  private javax.swing.JPanel jPanel1;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
   private javax.swing.JScrollPane jScrollPane3;
@@ -1361,10 +1514,13 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JTextPane queryPane;
   private javax.swing.JTextPane resultPane;
   private javax.swing.JTable resultTable;
+  private javax.swing.JButton setButton;
+  private javax.swing.JButton sortButton;
   private javax.swing.JLabel statusAnimationLabel;
   private javax.swing.JLabel statusMessageLabel;
   private javax.swing.JPanel statusPanel;
   private javax.swing.JTextField titleTextField;
+  private javax.swing.JButton urlButton;
   // End of variables declaration//GEN-END:variables
 
     private final Timer messageTimer;
@@ -1379,6 +1535,8 @@ public class CrawlQueryPadView extends FrameView {
     private final StyledDocument queryPaneDoc;
     private SimpleNode query = null;
     static JdbcConnectionPool connectionPool = null;
+    private Connection conn = null;
     private SwingWorker worker = null;
+    private boolean workerStop = false;
     private List<String> extensions = null;
 }
