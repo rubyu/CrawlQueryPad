@@ -96,17 +96,6 @@ public class CrawlQueryPadView extends FrameView {
         queryPaneDoc = (StyledDocument) queryPane.getDocument();
         queryPaneDoc.addDocumentListener(new QueryPaneDocumentListener());
 
-        /*
-        queryPane.getKeymap().addActionForKeyStroke(
-          KeyStroke.getKeyStroke("ENTER"), new TextAction("ENTER") {
-            public void actionPerformed(ActionEvent e) {
-              try {
-                queryPaneDoc.insertString(queryPane.getCaretPosition(), "\n  > ", null);
-              } catch (Exception ex) {}
-            }
-        });
-        */
-
         undomanager = new UndoManager();
         queryPaneDoc.addUndoableEditListener(undomanager);
 
@@ -253,76 +242,49 @@ public class CrawlQueryPadView extends FrameView {
 
           urlButton.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "\"\" ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "\"\" ");
             }
           });
           setButton.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "> $ // ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "> $ // ");
             }
           });
           filterButton.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "> # // ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "> # // ");
             }
           });
           depth1Button.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "> 1 ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "> 1 ");
             }
           });
           depth2Button.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "> 2 ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "> 2 ");
             }
           });
           sortButton.addActionListener( new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-              Document doc = queryPane.getDocument();
-              StyleContext sc = new StyleContext();
-              int pos = queryPane.getCaretPosition();
-              try {
-                doc.insertString(pos, "> @ url ASC ", sc.getStyle(StyleContext.DEFAULT_STYLE));
-              } catch (BadLocationException ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+              insertStringToJTextPane(queryPane, "> @ url ASC ");
             }
           });
+    }
+
+    void insertStringToJTextPane(JTextPane pane, String text) {
+      Document doc = pane.getDocument();
+      StyleContext sc = new StyleContext();
+      int pos = pane.getCaretPosition();
+      try {
+        doc.insertString(pos, text, sc.getStyle(StyleContext.DEFAULT_STYLE));
+      } catch (BadLocationException ex) {
+        logger.error(Utils.ThrowableToString(ex));
+      }
+    }
+    void setStringToJTextPane(JTextPane pane, String text) {
+      pane.setText(text);
+      pane.setCaretPosition(0);
     }
 
     void highlightUpdate() {
@@ -357,7 +319,6 @@ public class CrawlQueryPadView extends FrameView {
           }
         }
 
-        StringBuffer sb = new StringBuffer();
         //initialize
         List<Object[]> stack = new ArrayList<Object[]>();
         stack.add( new Object[]{query, -1} );
@@ -373,12 +334,6 @@ public class CrawlQueryPadView extends FrameView {
           o[1] = cursor;
 
           if (cursor == 0) { //at first visit
-
-            //write node name
-            for ( int i=0; i < depth; i++ ) {
-              sb.append(" ");
-            }
-            sb.append(node.toString());
 
             if (null != node.jjtGetValue()) { //if node has value
               Object[] arr = (Object[])node.jjtGetValue();
@@ -464,13 +419,7 @@ public class CrawlQueryPadView extends FrameView {
                 }
                 doc.setCharacterAttributes(startPos, length, attr, true);
               }
-              //write node value
-              if ( null != value ) {
-                sb.append(" : ");
-                sb.append(value);
-              }
             }
-            sb.append("\n");
           }
           if ( node.jjtGetNumChildren() <= cursor ) {
             stack.remove(depth);
@@ -481,7 +430,6 @@ public class CrawlQueryPadView extends FrameView {
             depth++;
           }
         }
-        //System.out.println( sb.toString() );
         
         //reconnect undomanager
         queryPaneDoc.addUndoableEditListener(undomanager);
@@ -697,9 +645,10 @@ public class CrawlQueryPadView extends FrameView {
         }
 
       } catch (Throwable t) {
-        statusMessageLabel.setText("Error!");
-        resultPane.setText( Utils.ThrowableToString(t) );
-        resultPane.setCaretPosition(0);
+        String error = Utils.ThrowableToString(t);
+        logger.error(error);
+        statusMessageLabel.setText("Error");
+        setStringToJTextPane(resultPane, error);
         return;
       }
 
@@ -721,34 +670,35 @@ public class CrawlQueryPadView extends FrameView {
            doCrawl
          ) {
         worker = new CrawlExcecuteWorker(instructions);
-        worker.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
-          public void propertyChange(java.beans.PropertyChangeEvent evt) {
-            String propertyName = evt.getPropertyName();
-            if("state".equalsIgnoreCase(propertyName)){
-                SwingWorker.StateValue state = (SwingWorker.StateValue)evt.getNewValue();
-                if(SwingWorker.StateValue.STARTED == state){
-                  if (!busyIconTimer.isRunning()) {
-                    statusAnimationLabel.setIcon(busyIcons[0]);
-                    busyIconIndex = 0;
-                    busyIconTimer.start();
-                  }
-                  progressBar.setVisible(true);
-                  progressBar.setIndeterminate(true);
-                }else if(SwingWorker.StateValue.DONE == state){
-                  busyIconTimer.stop();
-                  statusAnimationLabel.setIcon(idleIcon);
-                  progressBar.setVisible(false);
-                  progressBar.setValue(0);
-                }
-            } else if ("progress".equals(propertyName)) {
-              int value = (Integer)(evt.getNewValue());
-              progressBar.setVisible(true);
-              progressBar.setIndeterminate(false);
-              progressBar.setValue(value);
-            }
-          }
-        });
+        worker.addPropertyChangeListener(new PropertyChangeListener());
         worker.execute();
+      }
+    }
+    public class PropertyChangeListener implements java.beans.PropertyChangeListener {
+      public void propertyChange(java.beans.PropertyChangeEvent evt) {
+        String propertyName = evt.getPropertyName();
+        if("state".equalsIgnoreCase(propertyName)){
+            SwingWorker.StateValue state = (SwingWorker.StateValue)evt.getNewValue();
+            if(SwingWorker.StateValue.STARTED == state){
+              if (!busyIconTimer.isRunning()) {
+                statusAnimationLabel.setIcon(busyIcons[0]);
+                busyIconIndex = 0;
+                busyIconTimer.start();
+              }
+              progressBar.setVisible(true);
+              progressBar.setIndeterminate(true);
+            }else if(SwingWorker.StateValue.DONE == state){
+              busyIconTimer.stop();
+              statusAnimationLabel.setIcon(idleIcon);
+              progressBar.setVisible(false);
+              progressBar.setValue(0);
+            }
+        } else if ("progress".equals(propertyName)) {
+          int value = (Integer)(evt.getNewValue());
+          progressBar.setVisible(true);
+          progressBar.setIndeterminate(false);
+          progressBar.setValue(value);
+        }
       }
     }
     void invokeHighlightUpdate() {
@@ -824,6 +774,7 @@ public class CrawlQueryPadView extends FrameView {
         sorts.add( 0, defaultSort );
 
         if (null == conn) {
+          logger.warn("Missing connection. Retry to get connection.");
           conn = connectionPool.getConnection();
         }
 
@@ -836,6 +787,7 @@ public class CrawlQueryPadView extends FrameView {
           Object  from = instruction[3];
 
           if (workerStop) {
+            logger.info("worker is stopped.");
             workerStop = false;
             throw new java.util.concurrent.CancellationException();
           }
@@ -843,18 +795,18 @@ public class CrawlQueryPadView extends FrameView {
           publish( "(" + id + "/" + instructions.size() + ")" + " [" + inst + "] " + to + ", " + from );
           setProgress(100 * id / instructions.size());
 
-          System.out.println("--DUMP--");
-          System.out.println("id: " + id);
-          System.out.println("inst: " + inst);
-          System.out.println("to: " + to);
+          logger.debug("--DUMP--");
+          logger.debug("id: " + id);
+          logger.debug("inst: " + inst);
+          logger.debug("to: " + to);
           if (from instanceof Integer) {
-            System.out.println("from: " + from);
+            logger.debug("from: " + from);
             List fArr = pool.get((Integer)from);
             for (Object o : fArr) {
-              System.out.println(o);
+              logger.debug(o.toString());
             }
           } else {
-            System.out.println("from(value): " + from);
+            logger.debug("from(value): " + from);
           }
 
           if ( inst.equals("CONDITION") ) {
@@ -1023,11 +975,11 @@ public class CrawlQueryPadView extends FrameView {
             List fromArr = pool.get((Integer)from);
             LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
             for (Object o : fromArr) {
-              String fullUrl = (String)o;
-              if (!DomUtils.isValidURL(fullUrl)) {
+              String url = (String)DomUtils.getSplitedByAnchor((String)o)[0];
+              if (!DomUtils.isValidURL(url)) {
                 continue;
               }
-              int urlId = manager.register(fullUrl);
+              int urlId = manager.register(url);
               urls.add( urlId );
             }
             urls = urls.getResponseCodeFiltered();
@@ -1039,7 +991,7 @@ public class CrawlQueryPadView extends FrameView {
             throw new Exception("Unknown Class!");
           }
 
-          System.out.println("--------");
+          logger.debug("--------");
         }
         conn.commit();
 
@@ -1095,20 +1047,10 @@ public class CrawlQueryPadView extends FrameView {
       }
       @Override
       protected void done() {
-        LazyLoader[] resultArr = null;
-        try {
-          resultArr = get();
-        } catch (java.util.concurrent.CancellationException e) {
-          publish("Cancelled");
-        } catch (Exception e) {
-          publish("Error");
-          logger.debug( Utils.ThrowableToString(e) );
-        }
         publish("");
-        if (null != resultArr && 0 < resultArr.length) {
-          publish("Ready");
-
-          try {
+        try {
+          LazyLoader[] resultArr = get();
+          if (null != resultArr && 0 < resultArr.length) {
             StringBuffer bf = new StringBuffer();
 
             javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
@@ -1120,7 +1062,6 @@ public class CrawlQueryPadView extends FrameView {
                   loader.getId(),
                   loader.getFullUrl(),
                   loader.getTitle(),
-                  //loader.getContentString(),
                   loader.getText()
                 }
               );
@@ -1131,23 +1072,22 @@ public class CrawlQueryPadView extends FrameView {
               bf.append( loader.getText() );
               bf.append( "\n" );
             }
-            resultPane.setText(bf.toString());
-            resultPane.setCaretPosition(0);
-            
+            publish("Ready");
+            setStringToJTextPane(resultPane, bf.toString());
             //apiPanel
             jButton1.setEnabled(true);
             jButton2.setEnabled(true);
             jComboBox1.setEnabled(true);
-            if (0 < resultArr.length) {
-              titleTextField.setText(resultArr[0].getTitle());
-            }
-
-          } catch (Exception e) {
-            String error = Utils.ThrowableToString(e);
-            logger.error(error);
-            resultPane.setText(error);
-            resultPane.setCaretPosition(0);
+            titleTextField.setText(resultArr[0].getTitle());
           }
+
+        } catch (java.util.concurrent.CancellationException e) {
+          publish("Cancelled");
+        } catch (Exception e) {
+          publish("Error");
+          String error = Utils.ThrowableToString(e);
+          logger.error(error);
+          setStringToJTextPane(resultPane, error);
         }
       }
     }
