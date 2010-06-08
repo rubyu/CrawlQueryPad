@@ -50,12 +50,21 @@ def _show_directory_dialog():
       file = filechooser.getSelectedFile()
       return file.getAbsolutePath()
       
-def call(title, text):
+def call(data):
     """
     Main function of the extension.
-    Geven two values and returns a message that 
+    Geven a mapped data and returns a message that 
     displays on statusbar of CQPad.
+    
+    "data" is a map object, contains some values.
+    data.get("title")       #title
+    data.get("text")        #text
+    data.get("queryString") #query string
     """
+    
+    title = data.get("title")
+    text  = data.get("text")
+    
     state = API.getState()
     
     path = state.getFirstOr( "path", "" )

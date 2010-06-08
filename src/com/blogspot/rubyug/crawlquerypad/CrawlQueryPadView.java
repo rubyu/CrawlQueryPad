@@ -203,9 +203,12 @@ public class CrawlQueryPadView extends FrameView {
                   //set api
                   pyi.set("API", new ExtensionAPI(ext_name.toString()));
 
-                  pyi.set("____title____", titleTextField.getText());
-                  pyi.set("____text____",  resultPane.getText());
-                  String result = pyi.eval("call(____title____, ____text____)").toString();
+                  Map map = new HashMap();
+                  map.put("title", titleTextField.getText());
+                  map.put("text", resultPane.getText());
+                  map.put("queryString", worker.getQueryString());
+                  pyi.set("____data____",  map);
+                  String result = pyi.eval("call(____data____)").toString();
                   logger.info("result: " + result);
                   //
                   statusMessageLabel.setText("Script is called: " + result);
@@ -456,7 +459,8 @@ public class CrawlQueryPadView extends FrameView {
       jComboBox1.setEnabled(false);
       titleTextField.setText("");
 
-      QueryParser parser = new QueryParser( new StringReader(queryPane.getText()) );
+      String queryString = queryPane.getText();
+      QueryParser parser = new QueryParser( new StringReader(queryString) );
 
       //命令リスト
       List<Object[]> instructions = new ArrayList<Object[]>();
@@ -675,7 +679,7 @@ public class CrawlQueryPadView extends FrameView {
       if ( 0 == throwables.size() && //no error
            doCrawl
          ) {
-        worker = new CrawlExcecuteWorker(instructions);
+        worker = new CrawlExcecuteWorker(queryString, instructions);
         worker.addPropertyChangeListener(new PropertyChangeListener());
         worker.execute();
       }
@@ -747,9 +751,14 @@ public class CrawlQueryPadView extends FrameView {
       }
     }
     class CrawlExcecuteWorker extends SwingWorker<LazyLoader[], String> {
+      String queryString = null;
       List<Object[]> instructions = null;
-      public CrawlExcecuteWorker(List<Object[]> insts) {
+      public CrawlExcecuteWorker(String queryString, List<Object[]> insts) {
+        this.queryString  = queryString;
         this.instructions = insts;
+      }
+      public String getQueryString() {
+        return this.queryString;
       }
       @Override
       protected LazyLoader[] doInBackground() throws Exception {
@@ -1482,7 +1491,7 @@ public class CrawlQueryPadView extends FrameView {
     private SimpleNode query = null;
     static JdbcConnectionPool connectionPool = null;
     private Connection conn = null;
-    private SwingWorker worker = null;
+    private CrawlExcecuteWorker worker = null;
     private boolean workerStop = false;
     private List<String> extensions = null;
 }
