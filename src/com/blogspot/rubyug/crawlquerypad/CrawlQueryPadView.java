@@ -201,12 +201,15 @@ public class CrawlQueryPadView extends FrameView {
                   pyi.exec(str);
                   PyObject ext_name = pyi.eval("ext_name()");
                   //set api
-                  pyi.set("api", new ExtensionAPI(ext_name.toString()));
+                  pyi.set("API", new ExtensionAPI(ext_name.toString()));
 
-                  pyi.set("title", titleTextField.getText());
-                  pyi.set("text",  resultPane.getText());
-                  PyObject result = pyi.eval("call(title, text)");
+                  pyi.set("____title____", titleTextField.getText());
+                  pyi.set("____text____",  resultPane.getText());
+                  String result = pyi.eval("call(____title____, ____text____)").toString();
                   logger.info("result: " + result);
+                  //
+                  statusMessageLabel.setText("Script is called: " + result);
+                  messageTimer.restart();
                 } catch (Exception ex) {
                   logger.error(Utils.ThrowableToString(ex));
                 }
@@ -227,6 +230,9 @@ public class CrawlQueryPadView extends FrameView {
                   ExtensionAPI api = new ExtensionAPI(ext_name.toString());
                   api.setState(new State());
                   logger.info("success");
+                  //
+                  statusMessageLabel.setText("State is cleared");
+                  messageTimer.restart();
                 } catch (Exception ex) {
                   logger.error(Utils.ThrowableToString(ex));
                 }
