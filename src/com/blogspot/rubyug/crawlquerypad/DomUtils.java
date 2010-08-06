@@ -52,6 +52,10 @@ public class DomUtils {
           "url\\s*=\\s*(.+)",
           Pattern.CASE_INSENSITIVE
           );
+  private static final Pattern mailSchemePattern = Pattern.compile(
+          "^\\s*((mailto|sms|smsto|mms|mmsto|tel):)",
+          Pattern.CASE_INSENSITIVE
+          );
   /**
    * Guesses charset of plain text.
    * @param State header
@@ -308,6 +312,9 @@ public class DomUtils {
    */
   public static boolean hasDenyScheme(String s) {
     return denySchemePattern.matcher(s).find();
+  }
+  public static boolean hasMailScheme(String s) {
+    return mailSchemePattern.matcher(s).find();
   }
   /**
    * Splits given String and returns Array of Object.
@@ -587,6 +594,56 @@ public class DomUtils {
       }
     }
     return externalList;
+  }
+  public static Set<String> extractMails(String baseUrl, InputStream in, String charset) {
+
+    Set<String>  externalSet  = new HashSet<String>();
+
+    InputStreamReader isr = null;
+    try {
+      isr = new InputStreamReader(in, charset);
+      StreamedSource streamedSource = new StreamedSource(isr);
+      int lastSegmentEnd = 0;
+
+      for (Segment segment: streamedSource) {
+        if (segment.getEnd() <= lastSegmentEnd) {
+          continue;
+        }
+        lastSegmentEnd = segment.getEnd();
+
+        if (segment instanceof StartTag) {
+          StartTag startTag = (StartTag)segment;
+          String tagName = startTag.getName().toLowerCase();
+          //attributes
+          Attributes tagAttributes = startTag.getAttributes();
+          Map<String, String> tagAtts = new HashMap();
+          if (tagAttributes != null) {
+            for(Attribute a: startTag.getAttributes()) {
+              tagAtts.put(a.getKey(), a.getValue());
+            }
+          }
+
+          if (tagName.equals("a") ||
+              tagName.equals("area")) { //external
+            String link = tagAtts.get("href");
+            if (link != null && hasMailScheme(link)) {
+              if (!externalSet.contains(link)) {
+                externalSet.add(link);
+              }
+            }
+          }
+        }
+      }
+    } catch(Exception e) {
+      logger.error(Utils.ThrowableToString(e));
+    } finally {
+      if (isr != null) {
+        try {
+          isr.close();
+        } catch(Exception e) {}
+      }
+    }
+    return externalSet;
   }
   /**
    * Extracts texts from InputStream to OutputStream and returns title.

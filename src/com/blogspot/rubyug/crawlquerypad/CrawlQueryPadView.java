@@ -658,6 +658,7 @@ public class CrawlQueryPadView extends FrameView {
         String error = Utils.ThrowableToString(t);
         logger.error(error);
         statusMessageLabel.setText("Error");
+        messageTimer.restart();
         setStringToJTextPane(resultPane, error);
         return;
       }
@@ -750,7 +751,7 @@ public class CrawlQueryPadView extends FrameView {
         invokeHighlightUpdate();
       }
     }
-    class CrawlExcecuteWorker extends SwingWorker<LazyLoader[], String> {
+    class CrawlExcecuteWorker extends SwingWorker<Object[], String> {
       String queryString = null;
       List<Object[]> instructions = null;
       public CrawlExcecuteWorker(String queryString, List<Object[]> insts) {
@@ -761,7 +762,7 @@ public class CrawlQueryPadView extends FrameView {
         return this.queryString;
       }
       @Override
-      protected LazyLoader[] doInBackground() throws Exception {
+      protected Object[] doInBackground() throws Exception {
         publish("initializing...");
         setProgress(0);
 
@@ -1022,6 +1023,7 @@ public class CrawlQueryPadView extends FrameView {
 
         LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
         //sort
+        publish("Sorting...");
         for (Object o: sorts) {
           if (o instanceof Cond) {
             Cond cond = (Cond)o;
@@ -1051,8 +1053,40 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
-        return resultArr;
+        publish("Extract Email Adresses...");
+        Set<String> mails = new HashSet<String>();
+        List<Object[]> rows = new ArrayList<Object[]>();
+        for (int i=0; i < resultArr.length; i++) {
+          LazyLoader loader = resultArr[i];
+          rows.add(
+            new Object[]{
+              loader.getId(),
+              loader.getFullUrl(),
+              loader.getTitle(),
+              loader.getText()
+            }
+          );
+          InputStream in = null;
+          try {
+            in           = loader.getContent();
+            State header = loader.getHeader();
+            String charset = DomUtils.guessCharset(header, in);
+            try {
+              in.close();
+            } catch (Exception e) {}
 
+            in = loader.getContent();
+            Set<String> newMails = DomUtils.extractMails(loader.getUrl(), in, charset);
+            mails.addAll(newMails);
+          } finally {
+            if (null != in) {
+              try {
+                in.close();
+              } catch (Exception e) {}
+            }
+          }
+        }
+        return new Object[]{rows, mails};
       }
       @Override
       protected void process(List<String> chunks) {
@@ -1064,27 +1098,19 @@ public class CrawlQueryPadView extends FrameView {
       protected void done() {
         publish("");
         try {
-          LazyLoader[] resultArr = get();
-          if (null != resultArr && 0 < resultArr.length) {
-            StringBuffer bf = new StringBuffer();
+          Object[] result = get();
+          List<Object[]> rows = (List<Object[]>)result[0];
+          Set<String> mails   = (Set<String>)result[1];
 
+          if (0 < rows.size()) {
+            StringBuilder bf = new StringBuilder();
             javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
             model.setRowCount(0);
-            for (int i=0; i < resultArr.length; i++) {
-              LazyLoader loader = resultArr[i];
-              model.addRow(
-                new Object[]{
-                  loader.getId(),
-                  loader.getFullUrl(),
-                  loader.getTitle(),
-                  loader.getText()
-                }
-              );
-              bf.append( "----------------------------------------\n" );
-              bf.append( "[" );
-              bf.append( (i + 1) + "/" + resultArr.length + " " + loader.getTitle() );
-              bf.append( "]\n" );
-              bf.append( loader.getText() );
+            for (Object[] row: rows) {
+              model.addRow(row);
+            }
+            for (String mail: mails) {
+              bf.append( mail );
               bf.append( "\n" );
             }
             publish("Ready");
@@ -1093,7 +1119,7 @@ public class CrawlQueryPadView extends FrameView {
             jButton1.setEnabled(true);
             jButton2.setEnabled(true);
             jComboBox1.setEnabled(true);
-            titleTextField.setText(resultArr[0].getTitle());
+            titleTextField.setText("mail adresses");
           }
 
         } catch (java.util.concurrent.CancellationException e) {

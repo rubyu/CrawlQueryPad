@@ -74,7 +74,7 @@ public class LazyLoader {
       }
       State state = getState();
       long fail = state.getFirstOr("fail_on_getheader", 0);
-      if (0 == fail) {
+      if (fail <= 0) {
         try {
           Downloader dl = new Downloader(getUrl());
           //dl.run();
@@ -112,7 +112,7 @@ public class LazyLoader {
       }
       State state = getState();
       long fail = state.getFirstOr("fail_on_getcontent", 0);
-      if (0 == fail) {
+      if (fail <= 0) {
         try {
           Downloader dl = new Downloader(getUrl());
           dl.run();
