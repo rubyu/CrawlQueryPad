@@ -761,6 +761,10 @@ public class CrawlQueryPadView extends FrameView {
       public String getQueryString() {
         return this.queryString;
       }
+      public void publish(String s){
+        super.publish(s);
+
+      }
       @Override
       protected Object[] doInBackground() throws Exception {
         publish("initializing...");
@@ -873,7 +877,7 @@ public class CrawlQueryPadView extends FrameView {
             List toArr   = pool.get(to);
             int depth = (Integer)fromArr.get(0);
             LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-            set = set.getCrawled(depth, filters);
+            set = set.getCrawled(depth, filters, this);
             toArr.clear();
             toArr.add(set);
 
@@ -1053,11 +1057,12 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
-        publish("Extract Email Adresses...");
+        //extract
         Set<String> mails = new HashSet<String>();
         List<Object[]> rows = new ArrayList<Object[]>();
         for (int i=0; i < resultArr.length; i++) {
           LazyLoader loader = resultArr[i];
+          publish("Extracting Email Adresses (" + i + "/" + resultArr.length + ") " + loader.getUrl());
           rows.add(
             new Object[]{
               loader.getId(),
@@ -1092,7 +1097,7 @@ public class CrawlQueryPadView extends FrameView {
       protected void process(List<String> chunks) {
         String text = chunks.get(chunks.size() - 1);
         statusMessageLabel.setText((text == null) ? "" : text);
-        messageTimer.restart();
+        //messageTimer.restart();
       }
       @Override
       protected void done() {

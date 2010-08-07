@@ -25,7 +25,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
   public LazyLoaderManager getManager() {
     return this.manager;
   }
-  public LogicalOperationSet getCrawled(int depth, List<Cond> conds) {
+  public LogicalOperationSet getCrawled(int depth, List<Cond> conds, CrawlQueryPadView.CrawlExcecuteWorker worker) {
     LogicalOperationSet newSet     = this;
     LogicalOperationSet currentSet = this;
     LogicalOperationSet tempSet    = null;
@@ -35,6 +35,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
       
       for (int id : currentSet) {
         LazyLoader loader = manager.getLazyLoader(conn, id);
+        worker.publish("Crawling D" + (i+1) + "/" + depth + ", id" + id + ": " + loader.getUrl());
         InputStream in = null;
         try {
           in           = loader.getContent();
@@ -60,24 +61,39 @@ public class LogicalOperationSet extends HashSet<Integer> {
             } catch (Exception e) {}
           }
         }
-        logger.debug("size :" + tempSet.size());
-
-        logger.debug("ResponseCode Filter");
-        tempSet = tempSet.getResponseCodeFiltered();
-        logger.debug("size :" + tempSet.size());
-        
-        logger.debug("ContentType Filter");
-        tempSet = tempSet.getContentTypeFiltered();
-        logger.debug("size :" + tempSet.size());
-
-        logger.debug("Cond Filter");
-        tempSet = tempSet.getCondsFiltered(conds);
-        logger.debug("size :" + tempSet.size());
-
-        
-        currentSet = tempSet;
-        newSet = newSet.getUnion(tempSet);
       }
+      logger.debug("size :" + tempSet.size());
+      
+      /*
+       * 以下のフィルタの順序は、Locationを持つような、ブラウザからは
+       * 意識されないURLを経由できるようにした方がいいのではないかという点で
+       * 考慮の余地がある。
+       * 現在は、処理速度のため、
+       * ・条件でのフィルタ
+       * ・レスポンスコードでのフィルタ
+       * ・Content-Typeでのフィルタ
+       * ・（リダイレクトが発生した際のためもう一度）条件でのフィルタ
+       * を行っている。
+       * Setの同一判定を行えば最後の処理は軽減できる。
+       */
+      logger.debug("Cond Filter");
+      tempSet = tempSet.getCondsFiltered(conds);
+      logger.debug("size :" + tempSet.size());
+
+      logger.debug("ResponseCode Filter");
+      tempSet = tempSet.getResponseCodeFiltered();
+      logger.debug("size :" + tempSet.size());
+
+      logger.debug("ContentType Filter");
+      tempSet = tempSet.getContentTypeFiltered();
+      logger.debug("size :" + tempSet.size());
+
+      logger.debug("Cond Filter");
+      tempSet = tempSet.getCondsFiltered(conds);
+      logger.debug("size :" + tempSet.size());
+
+      currentSet = tempSet;
+      newSet = newSet.getUnion(tempSet);
     }
     return newSet;
   }
