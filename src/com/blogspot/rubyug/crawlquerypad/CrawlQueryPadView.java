@@ -64,221 +64,231 @@ public class CrawlQueryPadView extends FrameView {
       return top;
     }
     public CrawlQueryPadView(SingleFrameApplication app) {
-        super(app);
+      super(app);
 
-        initComponents();
+      initComponents();
 
-        // status bar initialization - message timeout, idle icon and busy animation, etc
-        ResourceMap resourceMap = getResourceMap();
-        int messageTimeout = resourceMap.getInteger("StatusBar.messageTimeout");
-        messageTimer = new Timer(messageTimeout, new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                statusMessageLabel.setText("");
+      // status bar initialization - message timeout, idle icon and busy animation, etc
+      ResourceMap resourceMap = getResourceMap();
+      int messageTimeout = resourceMap.getInteger("StatusBar.messageTimeout");
+      messageTimer = new Timer(messageTimeout, new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+              statusMessageLabel.setText("");
+          }
+      });
+      messageTimer.setRepeats(false);
+      int busyAnimationRate = resourceMap.getInteger("StatusBar.busyAnimationRate");
+      for (int i = 0; i < busyIcons.length; i++) {
+          busyIcons[i] = resourceMap.getIcon("StatusBar.busyIcons[" + i + "]");
+      }
+      busyIconTimer = new Timer(busyAnimationRate, new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+              busyIconIndex = (busyIconIndex + 1) % busyIcons.length;
+              statusAnimationLabel.setIcon(busyIcons[busyIconIndex]);
+          }
+      });
+      idleIcon = resourceMap.getIcon("StatusBar.idleIcon");
+      statusAnimationLabel.setIcon(idleIcon);
+      progressBar.setVisible(false);
+
+      queryPane.addCaretListener(new QueryPaneCaretListener());
+
+      queryPaneDoc = (StyledDocument) queryPane.getDocument();
+      queryPaneDoc.addDocumentListener(new QueryPaneDocumentListener());
+
+      undomanager = new UndoManager();
+      queryPaneDoc.addUndoableEditListener(undomanager);
+
+      queryPane.getKeymap().addActionForKeyStroke(
+        KeyStroke.getKeyStroke("ctrl Z"), new TextAction("Ctrl-Z") {
+          public void actionPerformed(ActionEvent e) {
+            if (undomanager.canUndo()) undomanager.undo();
+          }
+      });
+      queryPane.getKeymap().addActionForKeyStroke(
+        KeyStroke.getKeyStroke("ctrl Y"), new TextAction("Ctrl-Y") {
+          public void actionPerformed(ActionEvent e) {
+            if (undomanager.canRedo()) undomanager.redo();
+          }
+      });
+
+      //DB
+      connectionPool = JdbcConnectionPool.create("jdbc:h2:~/.cqpad/main;DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa");
+      try {
+        conn = connectionPool.getConnection();
+        Statement st = null;
+        st = conn.createStatement();
+        st.execute(
+          "DROP TABLE IF EXISTS response_cache;");
+        st.execute(
+          "CREATE TABLE IF NOT EXISTS response_cache(" +
+          "url VARCHAR PRIMARY KEY NOT NULL," +
+          "state CLOB NOT NULL," +
+          "header CLOB," +
+          "title CLOB," +
+          "text CLOB," +
+          "content BLOB" +
+          ");");
+        st.execute(
+          "CREATE TABLE IF NOT EXISTS api_state(" +
+          "key VARCHAR NOT NULL PRIMARY KEY," +
+          "state CLOB NOT NULL" +
+          ");");
+      } catch (SQLException e) {
+        logger.error(Utils.ThrowableToString(e));
+      }
+
+      extensions = new ArrayList<String>();
+      //exts
+      File exts =  new File( getCurrent() + "/ext" );
+      if (exts.exists() && exts.isDirectory()) {
+        for (File f : exts.listFiles()) {
+          if ( !f.getName().endsWith(".py") &&
+               !f.getName().endsWith(".jpy") ) {
+             continue;
+          }
+          InputStream in = null;
+          try {
+            logger.info("Adding extension script : " + f.getName());
+            in = new FileInputStream(f);
+            String charset = DomUtils.guessCharsetByUniversalDetector(in);
+            if (null == charset) {
+              charset = "utf-8";
             }
-        });
-        messageTimer.setRepeats(false);
-        int busyAnimationRate = resourceMap.getInteger("StatusBar.busyAnimationRate");
-        for (int i = 0; i < busyIcons.length; i++) {
-            busyIcons[i] = resourceMap.getIcon("StatusBar.busyIcons[" + i + "]");
-        }
-        busyIconTimer = new Timer(busyAnimationRate, new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                busyIconIndex = (busyIconIndex + 1) % busyIcons.length;
-                statusAnimationLabel.setIcon(busyIcons[busyIconIndex]);
-            }
-        });
-        idleIcon = resourceMap.getIcon("StatusBar.idleIcon");
-        statusAnimationLabel.setIcon(idleIcon);
-        progressBar.setVisible(false);
-
-        queryPane.addCaretListener(new QueryPaneCaretListener());
-
-        queryPaneDoc = (StyledDocument) queryPane.getDocument();
-        queryPaneDoc.addDocumentListener(new QueryPaneDocumentListener());
-
-        undomanager = new UndoManager();
-        queryPaneDoc.addUndoableEditListener(undomanager);
-
-        queryPane.getKeymap().addActionForKeyStroke(
-          KeyStroke.getKeyStroke("ctrl Z"), new TextAction("Ctrl-Z") {
-            public void actionPerformed(ActionEvent e) {
-              if (undomanager.canUndo()) undomanager.undo();
-            }
-        });
-        queryPane.getKeymap().addActionForKeyStroke(
-          KeyStroke.getKeyStroke("ctrl Y"), new TextAction("Ctrl-Y") {
-            public void actionPerformed(ActionEvent e) {
-              if (undomanager.canRedo()) undomanager.redo();
-            }
-        });
-
-        //DB
-        connectionPool = JdbcConnectionPool.create("jdbc:h2:~/.cqpad/main;DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa");
-        try {
-          conn = connectionPool.getConnection();
-          Statement st = null;
-          st = conn.createStatement();
-          st.execute(
-            "DROP TABLE IF EXISTS response_cache;");
-          st.execute(
-            "CREATE TABLE IF NOT EXISTS response_cache(" +
-            "url VARCHAR PRIMARY KEY NOT NULL," +
-            "state CLOB NOT NULL," +
-            "header CLOB," +
-            "title CLOB," +
-            "text CLOB," +
-            "content BLOB" +
-            ");");
-          st.execute(
-            "CREATE TABLE IF NOT EXISTS api_state(" +
-            "key VARCHAR NOT NULL PRIMARY KEY," +
-            "state CLOB NOT NULL" +
-            ");");
-        } catch (SQLException e) {
-          logger.error(Utils.ThrowableToString(e));
-        }
-
-        extensions = new ArrayList<String>();
-        //exts
-        File exts =  new File( getCurrent() + "/ext" );
-        if (exts.exists() && exts.isDirectory()) {
-          for (File f : exts.listFiles()) {
-            if ( !f.getName().endsWith(".py") &&
-                 !f.getName().endsWith(".jpy") ) {
-               continue;
-            }
-            InputStream in = null;
             try {
-              logger.info("Adding extension script : " + f.getName());
-              in = new FileInputStream(f);
-              String charset = DomUtils.guessCharsetByUniversalDetector(in);
-              if (null == charset) {
-                charset = "utf-8";
-              }
+                in.close();
+              } catch (Exception e) {}
+            in = new FileInputStream(f);
+            String str = Utils.InputStreamToString(in, charset);
+            PythonInterpreter pyi = new PythonInterpreter();
+            pyi.exec(str);
+
+            PyObject name = pyi.eval("ext_name()");
+            logger.info("name: " + name);
+            PyObject desc = pyi.eval("ext_description()");
+            logger.info("description: " + desc);
+            /*
+            pyi.set("title", "foo"); //dummy
+            pyi.set("text",  "bar"); //dummy
+            PyObject result = pyi.eval("call(title, text)");
+            logger.debug("result: " + result);
+            */
+            logger.info("OK");
+            extensions.add(str);
+            DefaultComboBoxModel model = (DefaultComboBoxModel)jComboBox1.getModel();
+            model.addElement(name + ": " + desc);
+          } catch (Exception e) {
+            logger.info("NG");
+            logger.error(Utils.ThrowableToString(e));
+          } finally {
+            if (null != in) {
               try {
-                  in.close();
-                } catch (Exception e) {}
-              in = new FileInputStream(f);
-              String str = Utils.InputStreamToString(in, charset);
-              PythonInterpreter pyi = new PythonInterpreter();
-              pyi.exec(str);
-              
-              PyObject name = pyi.eval("ext_name()");
-              logger.info("name: " + name);
-              PyObject desc = pyi.eval("ext_description()");
-              logger.info("description: " + desc);
-              /*
-              pyi.set("title", "foo"); //dummy
-              pyi.set("text",  "bar"); //dummy
-              PyObject result = pyi.eval("call(title, text)");
-              logger.debug("result: " + result);
-              */
-              logger.info("OK");
-              extensions.add(str);
-              DefaultComboBoxModel model = (DefaultComboBoxModel)jComboBox1.getModel();
-              model.addElement(name + ": " + desc);
-            } catch (Exception e) {
-              logger.info("NG");
-              logger.error(Utils.ThrowableToString(e));
-            } finally {
-              if (null != in) {
-                try {
-                  in.close();
-                } catch (Exception e) {}
-              }
-            } 
+                in.close();
+              } catch (Exception e) {}
+            }
           }
         }
+      }
 
-        jButton1.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              if (jComboBox1.isEnabled()) {
-                try {
-                  logger.info("call: " + jComboBox1.getSelectedItem());
-                  int index = jComboBox1.getSelectedIndex();
-                  String str = extensions.get(index);
-                  PythonInterpreter pyi = new PythonInterpreter();
-                  pyi.exec(str);
-                  PyObject ext_name = pyi.eval("ext_name()");
-                  //set api
-                  pyi.set("API", new ExtensionAPI(ext_name.toString()));
+      jButton1.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            if (jComboBox1.isEnabled()) {
+              try {
+                logger.info("call: " + jComboBox1.getSelectedItem());
+                int index = jComboBox1.getSelectedIndex();
+                String str = extensions.get(index);
+                PythonInterpreter pyi = new PythonInterpreter();
+                pyi.exec(str);
+                PyObject ext_name = pyi.eval("ext_name()");
+                //set api
+                pyi.set("API", new ExtensionAPI(ext_name.toString()));
 
-                  Map map = new HashMap();
-                  map.put("title", titleTextField.getText());
-                  map.put("text", resultPane.getText());
-                  map.put("queryString", worker.getQueryString());
-                  pyi.set("____data____",  map);
-                  String result = pyi.eval("call(____data____)").toString();
-                  logger.info("result: " + result);
-                  //
-                  statusMessageLabel.setText("Script is called: " + result);
-                  messageTimer.restart();
-                } catch (Exception ex) {
-                  logger.error(Utils.ThrowableToString(ex));
-                }
+                Map map = new HashMap();
+                map.put("title", titleTextField.getText());
+                map.put("text", resultPane.getText());
+                map.put("queryString", worker.getQueryString());
+                pyi.set("____data____",  map);
+                String result = pyi.eval("call(____data____)").toString();
+                logger.info("result: " + result);
+                //
+                statusMessageLabel.setText("Script is called: " + result);
+                messageTimer.restart();
+              } catch (Exception ex) {
+                logger.error(Utils.ThrowableToString(ex));
               }
             }
-          });
+          }
+        });
 
-        jButton2.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              if (jComboBox1.isEnabled()) {
-                try {
-                  logger.info("clear state: " + jComboBox1.getSelectedItem());
-                  int index = jComboBox1.getSelectedIndex();
-                  String str = extensions.get(index);
-                  PythonInterpreter pyi = new PythonInterpreter();
-                  pyi.exec(str);
-                  PyObject ext_name = pyi.eval("ext_name()");
-                  ExtensionAPI api = new ExtensionAPI(ext_name.toString());
-                  api.setState(new State());
-                  logger.info("success");
-                  //
-                  statusMessageLabel.setText("State is cleared");
-                  messageTimer.restart();
-                } catch (Exception ex) {
-                  logger.error(Utils.ThrowableToString(ex));
-                }
+      jButton2.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            if (jComboBox1.isEnabled()) {
+              try {
+                logger.info("clear state: " + jComboBox1.getSelectedItem());
+                int index = jComboBox1.getSelectedIndex();
+                String str = extensions.get(index);
+                PythonInterpreter pyi = new PythonInterpreter();
+                pyi.exec(str);
+                PyObject ext_name = pyi.eval("ext_name()");
+                ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+                api.setState(new State());
+                logger.info("success");
+                //
+                statusMessageLabel.setText("State is cleared");
+                messageTimer.restart();
+              } catch (Exception ex) {
+                logger.error(Utils.ThrowableToString(ex));
               }
             }
-          });
+          }
+        });
 
-          crawlButton.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              invokeQueryParse(true);
-            }
-          });
+      crawlButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            invokeQueryParse(true);
+          }
+        });
 
-          urlButton.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "\"\" ");
-            }
-          });
-          setButton.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "> $ // ");
-            }
-          });
-          filterButton.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "> # // ");
-            }
-          });
-          depth1Button.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "> 1 ");
-            }
-          });
-          depth2Button.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "> 2 ");
-            }
-          });
-          sortButton.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              insertStringToJTextPane(queryPane, "> @ url ASC ");
-            }
-          });
+      urlButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "\"\" ");
+          }
+        });
+      setButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "> $ // ");
+          }
+        });
+      filterButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "> # // ");
+          }
+        });
+      depth1Button.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "> 1 ");
+          }
+        });
+      depth2Button.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "> 2 ");
+          }
+        });
+      sortButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            insertStringToJTextPane(queryPane, "> @ url ASC ");
+          }
+        });
+
+      int wait = (Integer)downloadWaitSpinner.getValue();
+      LazyLoader.setWait(wait);
+      downloadWaitSpinner.addChangeListener( new ChangeListener() {
+          public void stateChanged(ChangeEvent e) {
+            JSpinner spinner = (JSpinner)e.getSource();
+            int wait = (Integer)spinner.getValue();
+            LazyLoader.setWait(wait);
+          }
+        });
     }
 
     void insertStringToJTextPane(JTextPane pane, String text) {
@@ -1183,6 +1193,10 @@ public class CrawlQueryPadView extends FrameView {
     jComboBox1 = new javax.swing.JComboBox();
     titleTextField = new javax.swing.JTextField();
     jButton2 = new javax.swing.JButton();
+    jLabel1 = new javax.swing.JLabel();
+    downloadWaitSpinner = new javax.swing.JSpinner();
+    jSeparator1 = new javax.swing.JSeparator();
+    jLabel2 = new javax.swing.JLabel();
     menuBar = new javax.swing.JMenuBar();
     javax.swing.JMenu fileMenu = new javax.swing.JMenu();
     javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -1239,7 +1253,7 @@ public class CrawlQueryPadView extends FrameView {
         .addComponent(depth2Button)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(sortButton)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 210, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 297, Short.MAX_VALUE)
         .addComponent(crawlButton)
         .addContainerGap())
     );
@@ -1318,7 +1332,7 @@ public class CrawlQueryPadView extends FrameView {
     resultTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("resultTable.columnModel.title2")); // NOI18N
     resultTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("resultTable.columnModel.title4")); // NOI18N
 
-    jSplitPane3.setRightComponent(jScrollPane4);
+    jSplitPane3.setBottomComponent(jScrollPane4);
 
     jScrollPane3.setBorder(null);
     jScrollPane3.setName("jScrollPane3"); // NOI18N
@@ -1353,14 +1367,13 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane3.setLeftComponent(jScrollPane3);
 
-    jSplitPane2.setLeftComponent(jSplitPane3);
+    jSplitPane2.setTopComponent(jSplitPane3);
 
     jSplitPane1.setBottomComponent(jSplitPane2);
 
     mainPanel.add(jSplitPane1, java.awt.BorderLayout.CENTER);
 
     apiPanel.setName("apiPanel"); // NOI18N
-    apiPanel.setPreferredSize(new java.awt.Dimension(100, 45));
 
     statusPanelSeparator1.setName("statusPanelSeparator1"); // NOI18N
 
@@ -1382,33 +1395,64 @@ public class CrawlQueryPadView extends FrameView {
     jButton2.setMinimumSize(new java.awt.Dimension(70, 23));
     jButton2.setName("jButton2"); // NOI18N
 
+    jLabel1.setText(resourceMap.getString("jLabel1.text")); // NOI18N
+    jLabel1.setName("jLabel1"); // NOI18N
+
+    downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(2, 0, 360, 1));
+    downloadWaitSpinner.setName("downloadWaitSpinner"); // NOI18N
+
+    jSeparator1.setName("jSeparator1"); // NOI18N
+
+    jLabel2.setText(resourceMap.getString("jLabel2.text")); // NOI18N
+    jLabel2.setName("jLabel2"); // NOI18N
+
     javax.swing.GroupLayout apiPanelLayout = new javax.swing.GroupLayout(apiPanel);
     apiPanel.setLayout(apiPanelLayout);
     apiPanelLayout.setHorizontalGroup(
       apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+      .addGroup(apiPanelLayout.createSequentialGroup()
         .addContainerGap()
-        .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 267, Short.MAX_VALUE)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 192, javax.swing.GroupLayout.PREFERRED_SIZE)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+          .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 687, Short.MAX_VALUE)
+          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+            .addComponent(jLabel2)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 279, Short.MAX_VALUE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 192, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+            .addComponent(jLabel1)
+            .addGap(12, 12, 12)
+            .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)))
         .addContainerGap())
-      .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 638, Short.MAX_VALUE)
+      .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 711, Short.MAX_VALUE))
     );
     apiPanelLayout.setVerticalGroup(
       apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
       .addGroup(apiPanelLayout.createSequentialGroup()
-        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 4, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addContainerGap()
+        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(jLabel1)
+          .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
           .addComponent(titleTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
           .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addContainerGap(12, Short.MAX_VALUE))
+          .addComponent(jLabel2))
+        .addContainerGap())
+      .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+          .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 2, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addContainerGap(73, Short.MAX_VALUE)))
     );
 
     mainPanel.add(apiPanel, java.awt.BorderLayout.PAGE_END);
@@ -1449,11 +1493,11 @@ public class CrawlQueryPadView extends FrameView {
     statusPanel.setLayout(statusPanelLayout);
     statusPanelLayout.setHorizontalGroup(
       statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 638, Short.MAX_VALUE)
+      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 711, Short.MAX_VALUE)
       .addGroup(statusPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addComponent(statusMessageLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 459, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 536, Short.MAX_VALUE)
         .addComponent(progressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(statusAnimationLabel)
@@ -1481,16 +1525,20 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JButton crawlButton;
   private javax.swing.JButton depth1Button;
   private javax.swing.JButton depth2Button;
+  private javax.swing.JSpinner downloadWaitSpinner;
   private javax.swing.JButton filterButton;
   private javax.swing.JTable instTable;
   private javax.swing.JButton jButton1;
   private javax.swing.JButton jButton2;
   private javax.swing.JComboBox jComboBox1;
+  private javax.swing.JLabel jLabel1;
+  private javax.swing.JLabel jLabel2;
   private javax.swing.JPanel jPanel1;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
   private javax.swing.JScrollPane jScrollPane3;
   private javax.swing.JScrollPane jScrollPane4;
+  private javax.swing.JSeparator jSeparator1;
   private javax.swing.JSplitPane jSplitPane1;
   private javax.swing.JSplitPane jSplitPane2;
   private javax.swing.JSplitPane jSplitPane3;
