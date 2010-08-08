@@ -32,10 +32,18 @@ public class LogicalOperationSet extends HashSet<Integer> {
     
     for (int i=0; i < depth; i++) {
       tempSet = new LogicalOperationSet(getConnection(), getManager());
-      
+
+      int current_i = 0;
+      int current_size = currentSet.size();
       for (int id : currentSet) {
+        current_i++;
         LazyLoader loader = manager.getLazyLoader(conn, id);
-        worker.publish("Crawling D" + (i+1) + "/" + depth + ", id" + id + ": " + loader.getUrl());
+        worker.publish(
+          "Crawling " +
+            "Depth " + (i+1) + "/" + depth + ", " +
+            "Item " + current_i + "/" + current_size + " " +
+            "Id " + id + ": " + loader.getUrl()
+          );
         InputStream in = null;
         try {
           in           = loader.getContent();
@@ -63,7 +71,10 @@ public class LogicalOperationSet extends HashSet<Integer> {
         }
       }
       logger.debug("size :" + tempSet.size());
-      
+      worker.publish(
+        "Filtering " +
+          "Depth " + (i+1) + "/" + depth
+        );
       /*
        * 以下のフィルタの順序は、Locationを持つような、ブラウザからは
        * 意識されないURLを経由できるようにした方がいいのではないかという点で

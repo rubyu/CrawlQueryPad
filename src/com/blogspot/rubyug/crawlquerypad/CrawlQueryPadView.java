@@ -1124,7 +1124,7 @@ public class CrawlQueryPadView extends FrameView {
             jButton1.setEnabled(true);
             jButton2.setEnabled(true);
             jComboBox1.setEnabled(true);
-            titleTextField.setText("mail adresses");
+            titleTextField.setText("email adresses");
           }
 
         } catch (java.util.concurrent.CancellationException e) {
