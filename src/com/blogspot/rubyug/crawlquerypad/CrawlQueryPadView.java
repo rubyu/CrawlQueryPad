@@ -289,6 +289,15 @@ public class CrawlQueryPadView extends FrameView {
             LazyLoader.setWait(wait);
           }
         });
+      int maxRetry = (Integer)maxRetrySpinner.getValue();
+      LazyLoader.setMaxRetry(maxRetry);
+      maxRetrySpinner.addChangeListener( new ChangeListener() {
+          public void stateChanged(ChangeEvent e) {
+            JSpinner spinner = (JSpinner)e.getSource();
+            int maxRetry = (Integer)spinner.getValue();
+            LazyLoader.setMaxRetry(maxRetry);
+          }
+        });
     }
 
     void insertStringToJTextPane(JTextPane pane, String text) {
@@ -1197,6 +1206,9 @@ public class CrawlQueryPadView extends FrameView {
     downloadWaitSpinner = new javax.swing.JSpinner();
     jSeparator1 = new javax.swing.JSeparator();
     jLabel2 = new javax.swing.JLabel();
+    jSeparator2 = new javax.swing.JSeparator();
+    maxRetrySpinner = new javax.swing.JSpinner();
+    jLabel3 = new javax.swing.JLabel();
     menuBar = new javax.swing.JMenuBar();
     javax.swing.JMenu fileMenu = new javax.swing.JMenu();
     javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -1398,13 +1410,22 @@ public class CrawlQueryPadView extends FrameView {
     jLabel1.setText(resourceMap.getString("jLabel1.text")); // NOI18N
     jLabel1.setName("jLabel1"); // NOI18N
 
-    downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(2, 0, 360, 1));
+    downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(0, 0, 360, 1));
     downloadWaitSpinner.setName("downloadWaitSpinner"); // NOI18N
 
     jSeparator1.setName("jSeparator1"); // NOI18N
 
     jLabel2.setText(resourceMap.getString("jLabel2.text")); // NOI18N
     jLabel2.setName("jLabel2"); // NOI18N
+
+    jSeparator2.setOrientation(javax.swing.SwingConstants.VERTICAL);
+    jSeparator2.setName("jSeparator2"); // NOI18N
+
+    maxRetrySpinner.setModel(new javax.swing.SpinnerNumberModel(0, 0, 100, 1));
+    maxRetrySpinner.setName("maxRetrySpinner"); // NOI18N
+
+    jLabel3.setText(resourceMap.getString("jLabel3.text")); // NOI18N
+    jLabel3.setName("jLabel3"); // NOI18N
 
     javax.swing.GroupLayout apiPanelLayout = new javax.swing.GroupLayout(apiPanel);
     apiPanel.setLayout(apiPanelLayout);
@@ -1425,9 +1446,15 @@ public class CrawlQueryPadView extends FrameView {
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+            .addComponent(jLabel3)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addComponent(maxRetrySpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, 2, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
             .addComponent(jLabel1)
             .addGap(12, 12, 12)
-            .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)))
+            .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)))
         .addContainerGap())
       .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
         .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 711, Short.MAX_VALUE))
@@ -1436,10 +1463,19 @@ public class CrawlQueryPadView extends FrameView {
       apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
       .addGroup(apiPanelLayout.createSequentialGroup()
         .addContainerGap()
-        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(jLabel1)
-          .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+          .addGroup(apiPanelLayout.createSequentialGroup()
+            .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+              .addComponent(maxRetrySpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+              .addComponent(jLabel3))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+          .addGroup(apiPanelLayout.createSequentialGroup()
+            .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+              .addComponent(jSeparator2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 20, Short.MAX_VALUE)
+              .addGroup(javax.swing.GroupLayout.Alignment.LEADING, apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(downloadWaitSpinner)
+                .addComponent(jLabel1)))
+            .addGap(10, 10, 10)))
         .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -1452,7 +1488,7 @@ public class CrawlQueryPadView extends FrameView {
       .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
           .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 2, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addContainerGap(73, Short.MAX_VALUE)))
+          .addContainerGap(77, Short.MAX_VALUE)))
     );
 
     mainPanel.add(apiPanel, java.awt.BorderLayout.PAGE_END);
@@ -1533,16 +1569,19 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JComboBox jComboBox1;
   private javax.swing.JLabel jLabel1;
   private javax.swing.JLabel jLabel2;
+  private javax.swing.JLabel jLabel3;
   private javax.swing.JPanel jPanel1;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
   private javax.swing.JScrollPane jScrollPane3;
   private javax.swing.JScrollPane jScrollPane4;
   private javax.swing.JSeparator jSeparator1;
+  private javax.swing.JSeparator jSeparator2;
   private javax.swing.JSplitPane jSplitPane1;
   private javax.swing.JSplitPane jSplitPane2;
   private javax.swing.JSplitPane jSplitPane3;
   private javax.swing.JPanel mainPanel;
+  private javax.swing.JSpinner maxRetrySpinner;
   private javax.swing.JMenuBar menuBar;
   private javax.swing.JProgressBar progressBar;
   private javax.swing.JTextPane queryPane;

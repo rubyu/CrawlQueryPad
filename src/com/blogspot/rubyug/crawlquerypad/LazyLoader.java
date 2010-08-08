@@ -21,6 +21,15 @@ public class LazyLoader {
   private Integer id = null;
   private String fullUrl = null;
 
+  private static int maxRetry = 0;
+  public static void setMaxRetry(int n) {
+    if (n < 0) {
+      logger.warn("n < 0");
+      return;
+    }
+    logger.info("maxRetry setted to " + n);
+    maxRetry = n;
+  }
   private Date lastDownload = new Date();
   private static int waitTime = 0; //msec
   public static void setWait(int n) {
@@ -88,7 +97,12 @@ public class LazyLoader {
       }
       State state = getState();
       long fail = state.getFirstOr("fail_on_getheader", 0);
-      if (fail <= 0) {
+      while (true) {
+        if (maxRetry < fail) {
+          logger.debug("fail(" + fail + ") exceeds maxRetry(" + maxRetry + ")");
+          break;
+        }
+        logger.debug("fail(" + fail + ") belows maxRetry(" + maxRetry + ")");
         try {
           long diff = lastDownload.getTime() + waitTime - (new Date()).getTime();
           if (0 < diff) { //残りwait時間がある
@@ -105,8 +119,8 @@ public class LazyLoader {
           setHeader(getUrl(), header);
           return header;
           
-        } catch (IOException e) {
-          logger.debug("download fail on getheader: " + Utils.ThrowableToString(e));
+        } catch (Exception e) {
+          logger.debug("download failed: " + Utils.ThrowableToString(e));
           fail++;
           state.set("fail_on_getheader", fail);
           setState(getUrl(), state);
@@ -137,7 +151,12 @@ public class LazyLoader {
       }
       State state = getState();
       long fail = state.getFirstOr("fail_on_getcontent", 0);
-      if (fail <= 0) {
+      while (true) {
+        if (maxRetry < fail) {
+          logger.debug("fail(" + fail + ") exceeds maxRetry(" + maxRetry + ")");
+          break;
+        }
+        logger.debug("fail(" + fail + ") belows maxRetry(" + maxRetry + ")");
         try {
           long diff = lastDownload.getTime() + waitTime - (new Date()).getTime();
           if (0 < diff) { //残りwait時間がある
@@ -154,11 +173,14 @@ public class LazyLoader {
             setHeader(getUrl(), header);
           }
           dl.run();
+          if (dl.isFailed()) {
+            throw new Exception("error occured while dl.run()");
+          }
           setContent(getUrl(), dl.getContentStream());
           return dl.getContentStream();
 
-        } catch (IOException e) {
-          logger.debug("download fail on getcontent: " + Utils.ThrowableToString(e));
+        } catch (Exception e) {
+          logger.debug("download failed: " + Utils.ThrowableToString(e));
           fail++;
           state.set("fail_on_getcontent", fail);
           setState(getUrl(), state);
