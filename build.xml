@@ -130,12 +130,12 @@
       <copydir src="${basedir}/ext" dest="${dist.dir}/ext" />
 
       <!-- move dist contents to publish directory -->
-      <move todir="${dist.dir}/cqpad-mod-emailextract">
+      <move todir="${dist.dir}/cqpad">
         <fileset dir="${dist.dir}">
         </fileset>
       </move>
 
       <!-- archive directory -->
-      <zip zipfile="${dist.dir}/cqpad-mod-emailextract-${version}.${bzr.revno}.zip" basedir="${dist.dir}" />
+      <zip zipfile="${dist.dir}/cqpad-${version}.${bzr.revno}.zip" basedir="${dist.dir}" />
     </target>
 </project>

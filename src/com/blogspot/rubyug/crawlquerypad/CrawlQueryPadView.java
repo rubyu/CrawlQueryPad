@@ -1237,6 +1237,7 @@ public class CrawlQueryPadView extends FrameView {
     setButton = new javax.swing.JButton();
     filterButton = new javax.swing.JButton();
     sortButton = new javax.swing.JButton();
+    jSeparator5 = new javax.swing.JSeparator();
     jSplitPane1 = new javax.swing.JSplitPane();
     jScrollPane1 = new javax.swing.JScrollPane();
     queryPane = new javax.swing.JTextPane();
@@ -1305,11 +1306,14 @@ public class CrawlQueryPadView extends FrameView {
     sortButton.setText(resourceMap.getString("sortButton.text")); // NOI18N
     sortButton.setName("sortButton"); // NOI18N
 
+    jSeparator5.setName("jSeparator5"); // NOI18N
+
     javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
     jPanel1.setLayout(jPanel1Layout);
     jPanel1Layout.setHorizontalGroup(
       jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+      .addComponent(jSeparator5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE)
+      .addGroup(jPanel1Layout.createSequentialGroup()
         .addContainerGap()
         .addComponent(urlButton)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1329,16 +1333,17 @@ public class CrawlQueryPadView extends FrameView {
     jPanel1Layout.setVerticalGroup(
       jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
       .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        .addContainerGap()
         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(crawlButton)
           .addComponent(urlButton)
           .addComponent(setButton)
           .addComponent(filterButton)
           .addComponent(depth1Button)
           .addComponent(depth2Button)
-          .addComponent(sortButton))
-        .addContainerGap())
+          .addComponent(sortButton)
+          .addComponent(crawlButton))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addComponent(jSeparator5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
     );
 
     mainPanel.add(jPanel1, java.awt.BorderLayout.PAGE_START);
@@ -1360,8 +1365,8 @@ public class CrawlQueryPadView extends FrameView {
     jSplitPane4.setName("jSplitPane4"); // NOI18N
 
     jSplitPane3.setBorder(null);
+    jSplitPane3.setMinimumSize(new java.awt.Dimension(97, 100));
     jSplitPane3.setName("jSplitPane3"); // NOI18N
-    jSplitPane3.setPreferredSize(new java.awt.Dimension(600, 200));
 
     jScrollPane4.setBorder(null);
     jScrollPane4.setName("jScrollPane4"); // NOI18N
@@ -1428,6 +1433,7 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane4.setTopComponent(jSplitPane3);
 
+    jScrollPane2.setBorder(null);
     jScrollPane2.setName("jScrollPane2"); // NOI18N
 
     resultTextArea.setColumns(20);
@@ -1520,8 +1526,8 @@ public class CrawlQueryPadView extends FrameView {
           .addGroup(apiPanelLayout.createSequentialGroup()
             .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-            .addComponent(renderComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 529, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 58, Short.MAX_VALUE)
+            .addComponent(renderComboBox, 0, 580, Short.MAX_VALUE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(renderResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
             .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 409, Short.MAX_VALUE)
@@ -1669,6 +1675,7 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JSeparator jSeparator2;
   private javax.swing.JSeparator jSeparator3;
   private javax.swing.JSeparator jSeparator4;
+  private javax.swing.JSeparator jSeparator5;
   private javax.swing.JSplitPane jSplitPane1;
   private javax.swing.JSplitPane jSplitPane3;
   private javax.swing.JSplitPane jSplitPane4;

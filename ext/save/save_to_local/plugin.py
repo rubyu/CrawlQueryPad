@@ -55,7 +55,7 @@ def call(API, data):
             
     "data" is a map object, contains some values.
     data.get("title")       #title
-    data.get("textFile")        #text file
+    data.get("textFile")    #text file
     data.get("queryString") #query string
     """
     title = data.get("title")
