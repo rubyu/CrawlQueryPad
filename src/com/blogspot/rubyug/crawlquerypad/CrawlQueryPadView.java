@@ -776,14 +776,12 @@ public class CrawlQueryPadView extends FrameView {
     class QueryPaneDocumentListener implements DocumentListener {
       public void insertUpdate(DocumentEvent e) {
         if (null != worker && !worker.isDone() && !worker.isCancelled()) {
-          workerStop = true;
           worker.cancel(true);
         }
         invokeQueryParse(false);
       }
       public void removeUpdate(DocumentEvent e) {
         if (null != worker && !worker.isDone() && !worker.isCancelled()) {
-          workerStop = true;
           worker.cancel(true);
         }
         invokeQueryParse(false);
@@ -850,9 +848,9 @@ public class CrawlQueryPadView extends FrameView {
           Integer to   = (Integer)instruction[2];
           Object  from = instruction[3];
 
-          if (workerStop) {
-            logger.info("worker is stopped.");
-            workerStop = false;
+          if (worker.isCancelled()) {
+            logger.info("worker is cancelled.");
+            publish("Cancelled");
             throw new java.util.concurrent.CancellationException();
           }
 
@@ -1232,6 +1230,7 @@ public class CrawlQueryPadView extends FrameView {
           }
 
         } catch (java.util.concurrent.CancellationException e) {
+          //thread的に、ここよりdoInBackground()内での処理の方が後になる。
           publish("Cancelled");
         } catch (Exception e) {
           publish("Error");
@@ -1742,7 +1741,6 @@ public class CrawlQueryPadView extends FrameView {
     static JdbcConnectionPool connectionPool = null;
     private Connection conn = null;
     private CrawlExcecuteWorker worker = null;
-    private boolean workerStop = false;
     private List<String> extensions_of_save   = null;
     private List<String> extensions_of_render = null;
     private String resultTitle = null;

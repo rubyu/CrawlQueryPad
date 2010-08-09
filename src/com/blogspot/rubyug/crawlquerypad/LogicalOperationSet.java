@@ -44,6 +44,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
             "Item " + current_i + "/" + current_size + " " +
             "Id " + id + ": " + loader.getUrl()
           );
+
+        if (worker.isCancelled()) {
+          break;
+        }
+
         InputStream in = null;
         try {
           in           = loader.getContent();
@@ -70,6 +75,12 @@ public class LogicalOperationSet extends HashSet<Integer> {
           }
         }
       }
+
+      if (worker.isCancelled()) {
+        logger.debug("worker is Cancelled");
+        break;
+      }
+
       logger.debug("size :" + tempSet.size());
       worker.publish(
         "Filtering " +
