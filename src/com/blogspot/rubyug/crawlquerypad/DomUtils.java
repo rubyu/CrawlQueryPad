@@ -57,31 +57,61 @@ public class DomUtils {
           Pattern.CASE_INSENSITIVE
           );
   /**
-   * Guesses charset of plain text.
+   * Guesses charset of css/html/plain-text/etc.
    * @param State header
    * @param InputStream contentStream
    * @return String
    */
   public static String guessCharset(State header, InputStream in) {
     String charset = null;
-    if (header != null) {
+    //header
+    if (null != header) {
       charset = guessCharsetByHeader(header);
-      if (charset != null) {
+      if (null != charset) {
         logger.debug("charset founded at header: " + charset);
         return charset;
       }
     }
-    if (in != null) {
+    if (null != in) {
       try {
+        byte[] content = Utils.InputStreamToByteArray(in, 32768);
+        try {
+          in.close();
+        } catch(Exception e) {}
+        //content
+        if (null != header) {
+          String contentType = header.getFirstOr("content-type", null);
+          if (null != contentType) {
+            if (-1 != contentType.indexOf("htm")) {
+              in = new ByteArrayInputStream(content);
+              charset = guessHtmlCharsetByContent(in);
+              try {
+                in.close();
+              } catch(Exception e) {}
+            } else if (-1 != contentType.indexOf("css")) {
+              in = new ByteArrayInputStream(content);
+              charset = guessCssCharsetByContent(in);
+              try {
+                in.close();
+              } catch(Exception e) {}
+            }
+            if (null != charset) {
+              logger.debug("charset founded at content: " + charset);
+              return charset;
+            }
+          }
+        }
+        //auto detect
+        in = new ByteArrayInputStream(content);
         charset = guessCharsetByUniversalDetector(in);
-        if (charset != null) {
+        if (null != charset) {
           logger.debug("charset detected by UniversalDetector: " + charset);
           return charset;
         }
-      } catch(Exception e) {
+      } catch (Exception e) {
         logger.error(Utils.ThrowableToString(e));
       } finally {
-        if (in != null) {
+        if (null != in) {
           try {
             in.close();
           } catch(Exception e) {}
@@ -91,113 +121,6 @@ public class DomUtils {
     logger.debug("default charset : " + defaultCharset);
     return defaultCharset;
   }
-  /**
-   * Guesses charset of CSS.
-   * @param State header
-   * @param InputStream contentStream
-   * @return String
-   */
-  public static String guessCssCharset(State header, InputStream in) {
-    String charset = null;
-    if (header != null) {
-      charset = guessCharsetByHeader(header);
-      if (charset != null) {
-        logger.debug("charset founded at header: " + charset);
-        return charset;
-      }
-    }
-    if (in != null) {
-      try {
-        byte[] content = Utils.InputStreamToByteArray(in, 8192);
-        try {
-          in.close();
-        } catch(Exception e) {}
-        in = new ByteArrayInputStream(content);
-        //find charset from content
-        charset = guessCssCharsetByContent(in);
-        if (charset != null) {
-          logger.debug("charset founded at content: " + charset);
-          return charset;
-        }
-        try {
-          in.close();
-        } catch(Exception e) {}
-        in = new ByteArrayInputStream(content);
-        //autodetect
-        charset = guessCharsetByUniversalDetector(in);
-        if (charset != null) {
-          logger.debug("charset detected by UniversalDetector: " + charset);
-          return charset;
-        }
-      } catch(Exception e) {
-        logger.error(Utils.ThrowableToString(e));
-      } finally {
-        if (in != null) {
-          try {
-            in.close();
-          } catch(Exception e) {}
-        }
-      }
-    }
-    logger.debug("default charset : " + defaultCharset);
-    return defaultCharset;
-  }
-  /**
-   * Guesses charset of HTML.
-   * @param State header
-   * @param InputStream contentStream
-   * @return String
-   */
-  public static String guessHtmlCharset(State header, InputStream in) {
-    String charset = null;
-    if (header != null) {
-      charset = guessCharsetByHeader(header);
-      if (charset != null) {
-        logger.debug("charset founded at header: " + charset);
-        return charset;
-      }
-    }
-    if (in != null) {
-      try {
-        byte[] content = Utils.InputStreamToByteArray(in, 8192);
-        try {
-          in.close();
-        } catch(Exception e) {}
-        in = new ByteArrayInputStream(content);
-        //find charset from content
-        charset = guessHtmlCharsetByContent(in);
-        if (charset != null) {
-          logger.debug("charset founded at content: " + charset);
-          return charset;
-        }
-        try {
-          in.close();
-        } catch(Exception e) {}
-        in = new ByteArrayInputStream(content);
-        //autodetect
-        charset = guessCharsetByUniversalDetector(in);
-        if (charset != null) {
-          logger.debug("charset detected by UniversalDetector: " + charset);
-          return charset;
-        }
-      } catch(Exception e) {
-        logger.error(Utils.ThrowableToString(e));
-      } finally {
-        if (in != null) {
-          try {
-            in.close();
-          } catch(Exception e) {}
-        }
-      }
-    }
-    logger.debug("default charset : " + defaultCharset);
-    return defaultCharset;
-  }
-  /**
-   * UniversalDetector detects charset from InputStream and returns it.
-   * @param InputStream in
-   * @return String
-   */
   public static String guessCharsetByUniversalDetector(InputStream in) {
     String charset = null;
     UniversalDetector detector = new UniversalDetector(null);
@@ -240,7 +163,7 @@ public class DomUtils {
         } catch(Exception e) {}
       }
     }
-    logger.debug("content: " + content);
+    logger.trace("content: " + content);
     if (content != null && !content.equals("")) {
       Matcher m = cssCharsetPattern.matcher(content);
       if (m.find()) {
@@ -272,7 +195,7 @@ public class DomUtils {
         } catch(Exception e) {}
       }
     }
-    logger.debug("content: " + content);
+    logger.trace("content: " + content);
     if (content != null && !content.equals("")) {
       Matcher m = charsetPattern.matcher(content);
       if (m.find()) {

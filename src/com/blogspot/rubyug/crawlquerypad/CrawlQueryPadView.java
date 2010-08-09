@@ -691,9 +691,9 @@ public class CrawlQueryPadView extends FrameView {
                   instructions.size() + 1, "URLS", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
                 } );
 
-            } else if ( node instanceof Chain ||
+            } else if ( node instanceof Chain /* ||
                         node instanceof Left_Paren ||
-                        node instanceof Right_Paren  ) {
+                        node instanceof Right_Paren */ ) {
               //pass
             } else {
               throw new Exception("Unknown Class!");
