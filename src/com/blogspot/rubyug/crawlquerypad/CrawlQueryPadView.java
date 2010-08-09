@@ -342,6 +342,10 @@ public class CrawlQueryPadView extends FrameView {
       pane.setText(text);
       pane.setCaretPosition(0);
     }
+    void setStringToJTextArea(JTextArea textArea, String text) {
+      textArea.setText(text);
+      textArea.setCaretPosition(0);
+    }
 
     void highlightUpdate() {
         if (null == query) {
@@ -499,7 +503,7 @@ public class CrawlQueryPadView extends FrameView {
       model.setRowCount(0);
       model = (DefaultTableModel)resultTable.getModel();
       model.setRowCount(0);
-      resultPane.setText("");
+      resultTextArea.setText("");
       titleTextField.setText("");
       //apiPanel
       saveSubmitButton.setEnabled(false);
@@ -704,7 +708,7 @@ public class CrawlQueryPadView extends FrameView {
         logger.error(error);
         statusMessageLabel.setText("Error");
         messageTimer.restart();
-        setStringToJTextPane(resultPane, error);
+        setStringToJTextArea(resultTextArea, error);
         return;
       }
 
@@ -829,7 +833,7 @@ public class CrawlQueryPadView extends FrameView {
 
         //Sort
         List sorts = new ArrayList();
-        //Sort default
+        //default sort
         List defaultSort = new ArrayList();
         defaultSort.add( Fields.Field.ID );
         defaultSort.add( Orders.Order.ASC );
@@ -1149,44 +1153,6 @@ public class CrawlQueryPadView extends FrameView {
         } catch (Exception ex) {
           logger.error(Utils.ThrowableToString(ex));
         }
-
-        /*
-        //extract
-        Set<String> mails = new HashSet<String>();
-        List<Object[]> rows = new ArrayList<Object[]>();
-        
-        for (int i=0; i < resultArr.length; i++) {
-          LazyLoader loader = resultArr[i];
-          publish("Extracting Email Adresses (" + i + "/" + resultArr.length + ") " + loader.getUrl());
-          rows.add(
-            new Object[]{
-              loader.getId(),
-              loader.getFullUrl(),
-              loader.getTitle(),
-              loader.getText()
-            }
-          );
-          InputStream in = null;
-          try {
-            in           = loader.getContent();
-            State header = loader.getHeader();
-              String charset = DomUtils.guessCharset(header, in);
-            try {
-              in.close();
-            } catch (Exception e) {}
-
-            in = loader.getContent();
-            Set<String> newMails = DomUtils.extractMails(loader.getUrl(), in, charset);
-            mails.addAll(newMails);
-          } finally {
-            if (null != in) {
-              try {
-                in.close();
-              } catch (Exception e) {}
-            }
-          }
-        }
-         */
         return rows;
       }
       @Override
@@ -1216,6 +1182,7 @@ public class CrawlQueryPadView extends FrameView {
               in = new FileInputStream(resultTextFile);
               text = Utils.InputStreamToString(in, "utf-8");
             } catch (Exception e) {
+              logger.error(Utils.ThrowableToString(e));
             } finally {
               if (null != in) {
                 try {
@@ -1223,7 +1190,8 @@ public class CrawlQueryPadView extends FrameView {
                 } catch (Exception e) {}
               }
             }
-            setStringToJTextPane(resultPane, text);
+            logger.info("text:" + text);
+            setStringToJTextArea(resultTextArea, text);
             publish("Ready");
             //enable apiPanel
             saveSubmitButton.setEnabled(true);
@@ -1236,7 +1204,7 @@ public class CrawlQueryPadView extends FrameView {
           publish("Error");
           String error = Utils.ThrowableToString(e);
           logger.error(error);
-          setStringToJTextPane(resultPane, error);
+          setStringToJTextArea(resultTextArea, error);
         }
       }
     }
@@ -1272,14 +1240,14 @@ public class CrawlQueryPadView extends FrameView {
     jSplitPane1 = new javax.swing.JSplitPane();
     jScrollPane1 = new javax.swing.JScrollPane();
     queryPane = new javax.swing.JTextPane();
-    jSplitPane2 = new javax.swing.JSplitPane();
-    jScrollPane2 = new javax.swing.JScrollPane();
-    resultPane = new javax.swing.JTextPane();
+    jSplitPane4 = new javax.swing.JSplitPane();
     jSplitPane3 = new javax.swing.JSplitPane();
     jScrollPane4 = new javax.swing.JScrollPane();
     resultTable = new javax.swing.JTable();
     jScrollPane3 = new javax.swing.JScrollPane();
     instTable = new javax.swing.JTable();
+    jScrollPane2 = new javax.swing.JScrollPane();
+    resultTextArea = new javax.swing.JTextArea();
     apiPanel = new javax.swing.JPanel();
     javax.swing.JSeparator statusPanelSeparator1 = new javax.swing.JSeparator();
     saveSubmitButton = new javax.swing.JButton();
@@ -1354,7 +1322,7 @@ public class CrawlQueryPadView extends FrameView {
         .addComponent(depth2Button)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(sortButton)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 311, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 362, Short.MAX_VALUE)
         .addComponent(crawlButton)
         .addContainerGap())
     );
@@ -1386,23 +1354,10 @@ public class CrawlQueryPadView extends FrameView {
     queryPane.setName("queryPane"); // NOI18N
     jScrollPane1.setViewportView(queryPane);
 
-    jSplitPane1.setLeftComponent(jScrollPane1);
+    jSplitPane1.setTopComponent(jScrollPane1);
 
-    jSplitPane2.setBorder(null);
-    jSplitPane2.setDividerLocation(300);
-    jSplitPane2.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
-    jSplitPane2.setName("jSplitPane2"); // NOI18N
-
-    jScrollPane2.setBorder(null);
-    jScrollPane2.setName("jScrollPane2"); // NOI18N
-    jScrollPane2.setPreferredSize(null);
-
-    resultPane.setEditable(false);
-    resultPane.setName("resultPane"); // NOI18N
-    resultPane.setPreferredSize(new java.awt.Dimension(6, 50));
-    jScrollPane2.setViewportView(resultPane);
-
-    jSplitPane2.setBottomComponent(jScrollPane2);
+    jSplitPane4.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
+    jSplitPane4.setName("jSplitPane4"); // NOI18N
 
     jSplitPane3.setBorder(null);
     jSplitPane3.setName("jSplitPane3"); // NOI18N
@@ -1410,7 +1365,6 @@ public class CrawlQueryPadView extends FrameView {
 
     jScrollPane4.setBorder(null);
     jScrollPane4.setName("jScrollPane4"); // NOI18N
-    jScrollPane4.setPreferredSize(new java.awt.Dimension(400, 200));
 
     resultTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
@@ -1437,11 +1391,10 @@ public class CrawlQueryPadView extends FrameView {
     resultTable.getColumnModel().getColumn(2).setHeaderValue(resourceMap.getString("resultTable.columnModel.title2")); // NOI18N
     resultTable.getColumnModel().getColumn(3).setHeaderValue(resourceMap.getString("resultTable.columnModel.title4")); // NOI18N
 
-    jSplitPane3.setBottomComponent(jScrollPane4);
+    jSplitPane3.setRightComponent(jScrollPane4);
 
     jScrollPane3.setBorder(null);
     jScrollPane3.setName("jScrollPane3"); // NOI18N
-    jScrollPane3.setPreferredSize(new java.awt.Dimension(200, 200));
 
     instTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
@@ -1473,9 +1426,22 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane3.setLeftComponent(jScrollPane3);
 
-    jSplitPane2.setTopComponent(jSplitPane3);
+    jSplitPane4.setTopComponent(jSplitPane3);
 
-    jSplitPane1.setBottomComponent(jSplitPane2);
+    jScrollPane2.setName("jScrollPane2"); // NOI18N
+
+    resultTextArea.setColumns(20);
+    resultTextArea.setEditable(false);
+    resultTextArea.setFont(resourceMap.getFont("resultTextArea.font")); // NOI18N
+    resultTextArea.setLineWrap(true);
+    resultTextArea.setRows(5);
+    resultTextArea.setWrapStyleWord(true);
+    resultTextArea.setName("resultTextArea"); // NOI18N
+    jScrollPane2.setViewportView(resultTextArea);
+
+    jSplitPane4.setBottomComponent(jScrollPane2);
+
+    jSplitPane1.setRightComponent(jSplitPane4);
 
     mainPanel.add(jSplitPane1, java.awt.BorderLayout.CENTER);
 
@@ -1546,7 +1512,7 @@ public class CrawlQueryPadView extends FrameView {
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
             .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-            .addComponent(saveComboBox, 0, 455, Short.MAX_VALUE)
+            .addComponent(saveComboBox, 0, 506, Short.MAX_VALUE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(saveSubmitButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1555,10 +1521,10 @@ public class CrawlQueryPadView extends FrameView {
             .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
             .addComponent(renderComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 529, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 58, Short.MAX_VALUE)
             .addComponent(renderResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
-            .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 358, Short.MAX_VALUE)
+            .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 409, Short.MAX_VALUE)
             .addGap(9, 9, 9)
             .addComponent(jSeparator4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1571,11 +1537,11 @@ public class CrawlQueryPadView extends FrameView {
             .addComponent(jLabel1)
             .addGap(3, 3, 3)
             .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE))
-          .addComponent(jSeparator3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 701, Short.MAX_VALUE)
-          .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 701, Short.MAX_VALUE))
+          .addComponent(jSeparator3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 752, Short.MAX_VALUE)
+          .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 752, Short.MAX_VALUE))
         .addContainerGap())
       .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 725, Short.MAX_VALUE))
+        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE))
     );
     apiPanelLayout.setVerticalGroup(
       apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1655,11 +1621,11 @@ public class CrawlQueryPadView extends FrameView {
     statusPanel.setLayout(statusPanelLayout);
     statusPanelLayout.setHorizontalGroup(
       statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 725, Short.MAX_VALUE)
+      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE)
       .addGroup(statusPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addComponent(statusMessageLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 550, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 601, Short.MAX_VALUE)
         .addComponent(progressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(statusAnimationLabel)
@@ -1704,8 +1670,8 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JSeparator jSeparator3;
   private javax.swing.JSeparator jSeparator4;
   private javax.swing.JSplitPane jSplitPane1;
-  private javax.swing.JSplitPane jSplitPane2;
   private javax.swing.JSplitPane jSplitPane3;
+  private javax.swing.JSplitPane jSplitPane4;
   private javax.swing.JPanel mainPanel;
   private javax.swing.JSpinner maxRetrySpinner;
   private javax.swing.JMenuBar menuBar;
@@ -1713,8 +1679,8 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JTextPane queryPane;
   private javax.swing.JComboBox renderComboBox;
   private javax.swing.JButton renderResetButton;
-  private javax.swing.JTextPane resultPane;
   private javax.swing.JTable resultTable;
+  private javax.swing.JTextArea resultTextArea;
   private javax.swing.JComboBox saveComboBox;
   private javax.swing.JButton saveResetButton;
   private javax.swing.JButton saveSubmitButton;
