@@ -215,7 +215,7 @@ public class CrawlQueryPadView extends FrameView {
               logger.debug("title: " + resultTitle);
               logger.debug("textFile: " + resultTextFile.getAbsolutePath());
               logger.debug("queryString: " + worker.getQueryString());
-              map.put("title", resultTitle);
+              map.put("title", titleTextField.getText());
               map.put("textFile", resultTextFile);
               map.put("queryString", worker.getQueryString());
               pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
@@ -496,17 +496,20 @@ public class CrawlQueryPadView extends FrameView {
 
     }
     void queryParse(boolean doCrawl) {
-      
+      //apiPanel
+      saveSubmitButton.setEnabled(false);
       //clear
       javax.swing.table.DefaultTableModel model;
       model = (DefaultTableModel)instTable.getModel();
       model.setRowCount(0);
       model = (DefaultTableModel)resultTable.getModel();
       model.setRowCount(0);
+      //
+      resultTextFile = null;
+      resultTitle    = null;
+      //
       resultTextArea.setText("");
       titleTextField.setText("");
-      //apiPanel
-      saveSubmitButton.setEnabled(false);
 
       String queryString = queryPane.getText();
       QueryParser parser = new QueryParser( new StringReader(queryString) );
@@ -1152,6 +1155,7 @@ public class CrawlQueryPadView extends FrameView {
           logger.info("render plugin(" + ext_name + ") returns valid result.");
         } catch (Exception ex) {
           logger.error(Utils.ThrowableToString(ex));
+          throw new Exception(ex);
         }
         return rows;
       }
@@ -1190,7 +1194,6 @@ public class CrawlQueryPadView extends FrameView {
                 } catch (Exception e) {}
               }
             }
-            logger.info("text:" + text);
             setStringToJTextArea(resultTextArea, text);
             publish("Ready");
             //enable apiPanel
@@ -1361,6 +1364,7 @@ public class CrawlQueryPadView extends FrameView {
 
     jSplitPane1.setTopComponent(jScrollPane1);
 
+    jSplitPane4.setBorder(null);
     jSplitPane4.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
     jSplitPane4.setName("jSplitPane4"); // NOI18N
 

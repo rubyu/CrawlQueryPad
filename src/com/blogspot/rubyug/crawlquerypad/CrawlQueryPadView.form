@@ -153,6 +153,9 @@
             </Container>
             <Container class="javax.swing.JSplitPane" name="jSplitPane4">
               <Properties>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                  <Border info="null"/>
+                </Property>
                 <Property name="orientation" type="int" value="0"/>
                 <Property name="name" type="java.lang.String" value="jSplitPane4" noResource="true"/>
               </Properties>
