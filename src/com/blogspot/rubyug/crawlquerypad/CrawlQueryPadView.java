@@ -521,6 +521,8 @@ public class CrawlQueryPadView extends FrameView {
       try {
         query = parser.parse();
 
+        query.dump("");
+
         //ノードのナンバリングのためのリスト
         List<SimpleNode> nodes = new ArrayList<SimpleNode>();
         nodes.add(null); //dummy
