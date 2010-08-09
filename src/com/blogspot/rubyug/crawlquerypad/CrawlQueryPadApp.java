@@ -6,11 +6,39 @@ package com.blogspot.rubyug.crawlquerypad;
 
 import org.jdesktop.application.Application;
 import org.jdesktop.application.SingleFrameApplication;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.apache.commons.cli.*;
 
 /**
  * The main class of the application.
  */
 public class CrawlQueryPadApp extends SingleFrameApplication {
+    protected static Logger logger = LoggerFactory.getLogger(CrawlQueryPadApp.class);
+
+    /*
+    private static String[] argument = null;
+    public static State getArgState() {
+      State state = new State();
+      Options options = new Options();
+      options.addOption("p", false, "profile name");
+      CommandLineParser parser = new BasicParser();
+      CommandLine commandLine;
+      try {
+          commandLine = parser.parse(options, argument);
+      } catch (ParseException e) {
+          logger.error("error occurred when parsing commandline arguments:" + Utils.ThrowableToString(e));
+          return state;
+      }
+      if (commandLine.hasOption("p") &&
+          null != commandLine.getOptionValue("p")) {
+        state.add("profileName", commandLine.getOptionValue("p"));
+      } else {
+        state.add("profileName", "default"); //apply default profile name
+      }
+      return state;
+    }
+     */
 
     /**
      * At startup create and show the main frame of the application.
@@ -39,6 +67,9 @@ public class CrawlQueryPadApp extends SingleFrameApplication {
      * Main method launching the application.
      */
     public static void main(String[] args) {
+        /*
+        argument = args;
+         */
         launch(CrawlQueryPadApp.class, args);
     }
 }

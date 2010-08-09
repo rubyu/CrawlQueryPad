@@ -30,7 +30,7 @@ import org.h2.jdbcx.JdbcConnectionPool;
 import java.sql.*;
 import java.net.*;
 
-import org.python.core.PyObject;
+import org.python.core.*;
 import org.python.util.PythonInterpreter;
 
 import org.slf4j.Logger;
@@ -112,12 +112,18 @@ public class CrawlQueryPadView extends FrameView {
           }
       });
 
+      /*
+      State args = ((CrawlQueryPadApp)app).getArgState();
+      String profileName = args.getFirstOr("profileName", null); //綺麗じゃない
+      */
+      String profileName = "default";
       //DB
-      connectionPool = JdbcConnectionPool.create("jdbc:h2:~/.cqpad/main;DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa");
+      connectionPool = JdbcConnectionPool.create(
+          "jdbc:h2:~/.cqpad/" + profileName + ";DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa"
+        );
       try {
         conn = connectionPool.getConnection();
-        Statement st = null;
-        st = conn.createStatement();
+        Statement st = conn.createStatement();
         st.execute(
           "DROP TABLE IF EXISTS response_cache;");
         st.execute(
@@ -136,109 +142,131 @@ public class CrawlQueryPadView extends FrameView {
           ");");
       } catch (SQLException e) {
         logger.error(Utils.ThrowableToString(e));
+        app.exit();
       }
 
-      extensions = new ArrayList<String>();
+      
       //exts
-      File exts =  new File( getCurrent() + "/ext" );
-      if (exts.exists() && exts.isDirectory()) {
-        for (File f : exts.listFiles()) {
-          if ( !f.getName().endsWith(".py") &&
-               !f.getName().endsWith(".jpy") ) {
-             continue;
-          }
-          InputStream in = null;
-          try {
-            logger.info("Adding extension script : " + f.getName());
-            in = new FileInputStream(f);
-            String charset = DomUtils.guessCharsetByUniversalDetector(in);
-            if (null == charset) {
-              charset = "utf-8";
+      extensions_of_save   = new ArrayList<String>();
+      extensions_of_render = new ArrayList<String>();
+      File extensionDir = new File( getCurrent() + "/ext" );
+      if (extensionDir.exists()) {
+        PythonInterpreter pyi = new PythonInterpreter();
+        pyi.exec("import sys");
+        pyi.exec("sys.path.append('" + getCurrent() + "')");
+        File pluginDir = new File(extensionDir.getAbsolutePath() + "/save");
+        if (pluginDir.exists() && pluginDir.isDirectory()) {
+          for (File plugin: pluginDir.listFiles()) {
+            if (!plugin.exists() ||
+                !plugin.isDirectory()) {
+                continue;
             }
             try {
-                in.close();
-              } catch (Exception e) {}
-            in = new FileInputStream(f);
-            String str = Utils.InputStreamToString(in, charset);
-            PythonInterpreter pyi = new PythonInterpreter();
-            pyi.exec(str);
-
-            PyObject name = pyi.eval("ext_name()");
-            logger.info("name: " + name);
-            PyObject desc = pyi.eval("ext_description()");
-            logger.info("description: " + desc);
-            /*
-            pyi.set("title", "foo"); //dummy
-            pyi.set("text",  "bar"); //dummy
-            PyObject result = pyi.eval("call(title, text)");
-            logger.debug("result: " + result);
-            */
-            logger.info("OK");
-            extensions.add(str);
-            DefaultComboBoxModel model = (DefaultComboBoxModel)jComboBox1.getModel();
-            model.addElement(name + ": " + desc);
-          } catch (Exception e) {
-            logger.info("NG");
-            logger.error(Utils.ThrowableToString(e));
-          } finally {
-            if (null != in) {
-              try {
-                in.close();
-              } catch (Exception e) {}
+              String pluginPath = "ext." + pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              pyi.exec("import " + pluginPath);
+              PyObject name = pyi.eval(pluginPath + ".ext_name()");
+              logger.info("name: " + name);
+              PyObject desc = pyi.eval(pluginPath + ".ext_description()");
+              logger.info("description: " + desc);
+              logger.info("OK");
+              extensions_of_save.add(pluginPath);
+              DefaultComboBoxModel model = (DefaultComboBoxModel)saveComboBox.getModel();
+              model.addElement(name + ": " + desc);
+            } catch(Exception e) {
+              logger.info("NG:" + Utils.ThrowableToString(e));
+            }
+          }
+        }
+        pluginDir = new File(extensionDir.getAbsolutePath() + "/render");
+        if (pluginDir.exists() && pluginDir.isDirectory()) {
+          for (File plugin: pluginDir.listFiles()) {
+            if (!plugin.exists() ||
+                !plugin.isDirectory()) {
+                continue;
+            }
+            try {
+              String pluginPath = "ext." + pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              pyi.exec("import " + pluginPath);
+              PyObject name = pyi.eval(pluginPath + ".ext_name()");
+              logger.info("name: " + name);
+              PyObject desc = pyi.eval(pluginPath + ".ext_description()");
+              logger.info("description: " + desc);
+              logger.info("OK");
+              extensions_of_render.add(pluginPath);
+              DefaultComboBoxModel model = (DefaultComboBoxModel)renderComboBox.getModel();
+              model.addElement(name + ": " + desc);
+            } catch(Exception e) {
+              logger.info("NG:" + Utils.ThrowableToString(e));
             }
           }
         }
       }
 
-      jButton1.addActionListener( new ActionListener() {
+      saveSubmitButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
-            if (jComboBox1.isEnabled()) {
-              try {
-                logger.info("call: " + jComboBox1.getSelectedItem());
-                int index = jComboBox1.getSelectedIndex();
-                String str = extensions.get(index);
-                PythonInterpreter pyi = new PythonInterpreter();
-                pyi.exec(str);
-                PyObject ext_name = pyi.eval("ext_name()");
-                //set api
-                pyi.set("API", new ExtensionAPI(ext_name.toString()));
-
-                Map map = new HashMap();
-                map.put("title", titleTextField.getText());
-                map.put("text", resultPane.getText());
-                map.put("queryString", worker.getQueryString());
-                pyi.set("____data____",  map);
-                String result = pyi.eval("call(____data____)").toString();
-                logger.info("result: " + result);
-                //
-                statusMessageLabel.setText("Script is called: " + result);
-                messageTimer.restart();
-              } catch (Exception ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+            try {
+              logger.info("call: " + saveComboBox.getSelectedItem());
+              int index = saveComboBox.getSelectedIndex();
+              String pluginPath = extensions_of_save.get(index);
+              PythonInterpreter pyi = new PythonInterpreter();
+              pyi.exec("import " + pluginPath);
+              PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
+              Map map = new HashMap();
+              logger.debug("title: " + resultTitle);
+              logger.debug("textFile: " + resultTextFile.getAbsolutePath());
+              logger.debug("queryString: " + worker.getQueryString());
+              map.put("title", resultTitle);
+              map.put("textFile", resultTextFile);
+              map.put("queryString", worker.getQueryString());
+              pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
+              pyi.set("____DATA____",  map);
+              String result = pyi.eval(pluginPath + ".call(____API____, ____DATA____)").toString();
+              logger.info("result: " + result);
+              //
+              statusMessageLabel.setText("save plugin(" + ext_name + ") returns: " + result);
+            } catch (Exception ex) {
+              statusMessageLabel.setText("save plugin failed!");
+              logger.error(Utils.ThrowableToString(ex));
             }
           }
         });
 
-      jButton2.addActionListener( new ActionListener() {
+      saveResetButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
-            if (jComboBox1.isEnabled()) {
-              try {
-                logger.info("clear state: " + jComboBox1.getSelectedItem());
-                int index = jComboBox1.getSelectedIndex();
-                String str = extensions.get(index);
-                PythonInterpreter pyi = new PythonInterpreter();
-                pyi.exec(str);
-                PyObject ext_name = pyi.eval("ext_name()");
-                ExtensionAPI api = new ExtensionAPI(ext_name.toString());
-                api.setState(new State());
-                logger.info("success");
-                //
-                statusMessageLabel.setText("State is cleared");
-                messageTimer.restart();
-              } catch (Exception ex) {
-                logger.error(Utils.ThrowableToString(ex));
-              }
+            try {
+              logger.info("clear state: " + saveComboBox.getSelectedItem());
+              int index = saveComboBox.getSelectedIndex();
+              String pluginPath = extensions_of_save.get(index);
+              PythonInterpreter pyi = new PythonInterpreter();
+              pyi.exec("import " + pluginPath);
+              PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
+              ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+              api.setState(new State());
+              logger.info("success");
+              //
+              statusMessageLabel.setText("State is cleared");
+            } catch (Exception ex) {
+              logger.error(Utils.ThrowableToString(ex));
+            }
+          }
+        });
+
+      renderResetButton.addActionListener( new ActionListener() {
+          public void actionPerformed(ActionEvent e) {
+            try {
+              logger.info("clear state: " + renderComboBox.getSelectedItem());
+              int index = renderComboBox.getSelectedIndex();
+              String pluginPath = extensions_of_render.get(index);
+              PythonInterpreter pyi = new PythonInterpreter();
+              pyi.exec("import " + pluginPath);
+              PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
+              ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+              api.setState(new State());
+              logger.info("success");
+              //
+              statusMessageLabel.setText("State is cleared");
+            } catch (Exception ex) {
+              logger.error(Utils.ThrowableToString(ex));
             }
           }
         });
@@ -472,11 +500,9 @@ public class CrawlQueryPadView extends FrameView {
       model = (DefaultTableModel)resultTable.getModel();
       model.setRowCount(0);
       resultPane.setText("");
-      //apiPanel
-      jButton1.setEnabled(false);
-      jButton2.setEnabled(false);
-      jComboBox1.setEnabled(false);
       titleTextField.setText("");
+      //apiPanel
+      saveSubmitButton.setEnabled(false);
 
       String queryString = queryPane.getText();
       QueryParser parser = new QueryParser( new StringReader(queryString) );
@@ -770,7 +796,7 @@ public class CrawlQueryPadView extends FrameView {
         invokeHighlightUpdate();
       }
     }
-    class CrawlExcecuteWorker extends SwingWorker<Object[], String> {
+    class CrawlExcecuteWorker extends SwingWorker<List<Object[]>, String> {
       String queryString = null;
       List<Object[]> instructions = null;
       public CrawlExcecuteWorker(String queryString, List<Object[]> insts) {
@@ -782,10 +808,9 @@ public class CrawlQueryPadView extends FrameView {
       }
       public void publish(String s){
         super.publish(s);
-
       }
       @Override
-      protected Object[] doInBackground() throws Exception {
+      protected List<Object[]> doInBackground() throws Exception {
         publish("initializing...");
         setProgress(0);
 
@@ -1076,9 +1101,62 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
+
+        List<Object[]> rows = new ArrayList<Object[]>();
+        for (int i=0; i < resultArr.length; i++) {
+          LazyLoader loader = resultArr[i];
+          String title = loader.getTitle();
+          if (null != title && 100 < title.length()) {
+            title = title.substring(0, 100); //切り捨て
+          }
+          String text  = loader.getText();
+          if (null != text && 100 < text.length()) {
+            text = text.substring(0, 100); //切り捨て
+          }
+          rows.add(
+            new Object[]{
+              loader.getId(),
+              loader.getFullUrl(),
+              title,
+              text
+            }
+          );
+        }
+        
+        try {
+          logger.info("call: " + renderComboBox.getSelectedItem());
+          int index = renderComboBox.getSelectedIndex();
+          String pluginPath = extensions_of_render.get(index);
+          PythonInterpreter pyi = new PythonInterpreter();
+          pyi.exec("import " + pluginPath);
+          PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
+          Map map = new HashMap();
+          map.put("resultArr", resultArr);
+          map.put("queryString", worker.getQueryString());
+          pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
+          pyi.set("____DATA____",  map);
+          Object ret = pyi.eval(pluginPath + ".call(____API____, ____DATA____)");
+          if (ret instanceof PyTuple) {
+            PyTuple retTuple = (PyTuple)ret;
+            if (2 <= retTuple.__len__()) {
+              resultTitle    = (String)retTuple.get(0);
+              resultTextFile = (File)retTuple.get(1);
+            } else {
+              throw new Exception("invalid result");
+            }
+          } else {
+            throw new Exception("Plugin not returns PyTuple Object!");
+          }
+          logger.info("render plugin(" + ext_name + ") returns valid result.");
+        } catch (Exception ex) {
+          logger.error(Utils.ThrowableToString(ex));
+        }
+
+        /*
         //extract
         Set<String> mails = new HashSet<String>();
         List<Object[]> rows = new ArrayList<Object[]>();
+        
         for (int i=0; i < resultArr.length; i++) {
           LazyLoader loader = resultArr[i];
           publish("Extracting Email Adresses (" + i + "/" + resultArr.length + ") " + loader.getUrl());
@@ -1094,7 +1172,7 @@ public class CrawlQueryPadView extends FrameView {
           try {
             in           = loader.getContent();
             State header = loader.getHeader();
-            String charset = DomUtils.guessCharset(header, in);
+              String charset = DomUtils.guessCharset(header, in);
             try {
               in.close();
             } catch (Exception e) {}
@@ -1110,7 +1188,8 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
-        return new Object[]{rows, mails};
+         */
+        return rows;
       }
       @Override
       protected void process(List<String> chunks) {
@@ -1122,28 +1201,34 @@ public class CrawlQueryPadView extends FrameView {
       protected void done() {
         publish("");
         try {
-          Object[] result = get();
-          List<Object[]> rows = (List<Object[]>)result[0];
-          Set<String> mails   = (Set<String>)result[1];
-
+          List<Object[]> rows = get();
+          
           if (0 < rows.size()) {
-            StringBuilder bf = new StringBuilder();
+            //結果が返っているので、resultTitle, resultTextFileも正常に保存されている。
             javax.swing.table.DefaultTableModel model = (DefaultTableModel)resultTable.getModel();
             model.setRowCount(0);
             for (Object[] row: rows) {
               model.addRow(row);
             }
-            for (String mail: mails) {
-              bf.append( mail );
-              bf.append( "\n" );
+            //result
+            titleTextField.setText(resultTitle);
+            String text = "";
+            InputStream in = null;
+            try {
+              in = new FileInputStream(resultTextFile);
+              text = Utils.InputStreamToString(in, "utf-8");
+            } catch (Exception e) {
+            } finally {
+              if (null != in) {
+                try {
+                  in.close();
+                } catch (Exception e) {}
+              }
             }
+            setStringToJTextPane(resultPane, text);
             publish("Ready");
-            setStringToJTextPane(resultPane, bf.toString());
-            //apiPanel
-            jButton1.setEnabled(true);
-            jButton2.setEnabled(true);
-            jComboBox1.setEnabled(true);
-            titleTextField.setText("email adresses");
+            //enable apiPanel
+            saveSubmitButton.setEnabled(true);
           }
 
         } catch (java.util.concurrent.CancellationException e) {
@@ -1198,17 +1283,22 @@ public class CrawlQueryPadView extends FrameView {
     instTable = new javax.swing.JTable();
     apiPanel = new javax.swing.JPanel();
     javax.swing.JSeparator statusPanelSeparator1 = new javax.swing.JSeparator();
-    jButton1 = new javax.swing.JButton();
-    jComboBox1 = new javax.swing.JComboBox();
+    saveSubmitButton = new javax.swing.JButton();
+    saveComboBox = new javax.swing.JComboBox();
     titleTextField = new javax.swing.JTextField();
-    jButton2 = new javax.swing.JButton();
+    saveResetButton = new javax.swing.JButton();
     jLabel1 = new javax.swing.JLabel();
     downloadWaitSpinner = new javax.swing.JSpinner();
-    jSeparator1 = new javax.swing.JSeparator();
     jLabel2 = new javax.swing.JLabel();
     jSeparator2 = new javax.swing.JSeparator();
     maxRetrySpinner = new javax.swing.JSpinner();
     jLabel3 = new javax.swing.JLabel();
+    jLabel4 = new javax.swing.JLabel();
+    renderComboBox = new javax.swing.JComboBox();
+    jSeparator1 = new javax.swing.JSeparator();
+    jSeparator3 = new javax.swing.JSeparator();
+    jSeparator4 = new javax.swing.JSeparator();
+    renderResetButton = new javax.swing.JButton();
     menuBar = new javax.swing.JMenuBar();
     javax.swing.JMenu fileMenu = new javax.swing.JMenu();
     javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -1265,7 +1355,7 @@ public class CrawlQueryPadView extends FrameView {
         .addComponent(depth2Button)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(sortButton)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 297, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 311, Short.MAX_VALUE)
         .addComponent(crawlButton)
         .addContainerGap())
     );
@@ -1306,18 +1396,22 @@ public class CrawlQueryPadView extends FrameView {
 
     jScrollPane2.setBorder(null);
     jScrollPane2.setName("jScrollPane2"); // NOI18N
+    jScrollPane2.setPreferredSize(null);
 
     resultPane.setEditable(false);
     resultPane.setName("resultPane"); // NOI18N
+    resultPane.setPreferredSize(new java.awt.Dimension(6, 50));
     jScrollPane2.setViewportView(resultPane);
 
-    jSplitPane2.setRightComponent(jScrollPane2);
+    jSplitPane2.setBottomComponent(jScrollPane2);
 
     jSplitPane3.setBorder(null);
     jSplitPane3.setName("jSplitPane3"); // NOI18N
+    jSplitPane3.setPreferredSize(new java.awt.Dimension(600, 200));
 
     jScrollPane4.setBorder(null);
     jScrollPane4.setName("jScrollPane4"); // NOI18N
+    jScrollPane4.setPreferredSize(new java.awt.Dimension(400, 200));
 
     resultTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
@@ -1348,6 +1442,7 @@ public class CrawlQueryPadView extends FrameView {
 
     jScrollPane3.setBorder(null);
     jScrollPane3.setName("jScrollPane3"); // NOI18N
+    jScrollPane3.setPreferredSize(new java.awt.Dimension(200, 200));
 
     instTable.setModel(new javax.swing.table.DefaultTableModel(
       new Object [][] {
@@ -1389,23 +1484,21 @@ public class CrawlQueryPadView extends FrameView {
 
     statusPanelSeparator1.setName("statusPanelSeparator1"); // NOI18N
 
-    jButton1.setText(resourceMap.getString("jButton1.text")); // NOI18N
-    jButton1.setEnabled(false);
-    jButton1.setMaximumSize(new java.awt.Dimension(70, 23));
-    jButton1.setMinimumSize(new java.awt.Dimension(70, 23));
-    jButton1.setName("jButton1"); // NOI18N
+    saveSubmitButton.setText(resourceMap.getString("saveSubmitButton.text")); // NOI18N
+    saveSubmitButton.setEnabled(false);
+    saveSubmitButton.setMaximumSize(new java.awt.Dimension(70, 23));
+    saveSubmitButton.setMinimumSize(new java.awt.Dimension(70, 23));
+    saveSubmitButton.setName("saveSubmitButton"); // NOI18N
 
-    jComboBox1.setEnabled(false);
-    jComboBox1.setName("jComboBox1"); // NOI18N
+    saveComboBox.setName("saveComboBox"); // NOI18N
 
     titleTextField.setText(resourceMap.getString("titleTextField.text")); // NOI18N
     titleTextField.setName("titleTextField"); // NOI18N
 
-    jButton2.setText(resourceMap.getString("jButton2.text")); // NOI18N
-    jButton2.setEnabled(false);
-    jButton2.setMaximumSize(new java.awt.Dimension(70, 23));
-    jButton2.setMinimumSize(new java.awt.Dimension(70, 23));
-    jButton2.setName("jButton2"); // NOI18N
+    saveResetButton.setText(resourceMap.getString("saveResetButton.text")); // NOI18N
+    saveResetButton.setMaximumSize(new java.awt.Dimension(70, 23));
+    saveResetButton.setMinimumSize(new java.awt.Dimension(70, 23));
+    saveResetButton.setName("saveResetButton"); // NOI18N
 
     jLabel1.setText(resourceMap.getString("jLabel1.text")); // NOI18N
     jLabel1.setName("jLabel1"); // NOI18N
@@ -1413,8 +1506,7 @@ public class CrawlQueryPadView extends FrameView {
     downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(0, 0, 360, 1));
     downloadWaitSpinner.setName("downloadWaitSpinner"); // NOI18N
 
-    jSeparator1.setName("jSeparator1"); // NOI18N
-
+    jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
     jLabel2.setText(resourceMap.getString("jLabel2.text")); // NOI18N
     jLabel2.setName("jLabel2"); // NOI18N
 
@@ -1427,6 +1519,24 @@ public class CrawlQueryPadView extends FrameView {
     jLabel3.setText(resourceMap.getString("jLabel3.text")); // NOI18N
     jLabel3.setName("jLabel3"); // NOI18N
 
+    jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+    jLabel4.setText(resourceMap.getString("jLabel4.text")); // NOI18N
+    jLabel4.setName("jLabel4"); // NOI18N
+
+    renderComboBox.setName("renderComboBox"); // NOI18N
+
+    jSeparator1.setName("jSeparator1"); // NOI18N
+
+    jSeparator3.setName("jSeparator3"); // NOI18N
+
+    jSeparator4.setOrientation(javax.swing.SwingConstants.VERTICAL);
+    jSeparator4.setName("jSeparator4"); // NOI18N
+
+    renderResetButton.setText(resourceMap.getString("renderResetButton.text")); // NOI18N
+    renderResetButton.setMaximumSize(new java.awt.Dimension(70, 23));
+    renderResetButton.setMinimumSize(new java.awt.Dimension(70, 23));
+    renderResetButton.setName("renderResetButton"); // NOI18N
+
     javax.swing.GroupLayout apiPanelLayout = new javax.swing.GroupLayout(apiPanel);
     apiPanel.setLayout(apiPanelLayout);
     apiPanelLayout.setHorizontalGroup(
@@ -1434,61 +1544,78 @@ public class CrawlQueryPadView extends FrameView {
       .addGroup(apiPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-          .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 687, Short.MAX_VALUE)
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
-            .addComponent(jLabel2)
+            .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addComponent(saveComboBox, 0, 455, Short.MAX_VALUE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 279, Short.MAX_VALUE)
+            .addComponent(saveSubmitButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 192, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addComponent(saveResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+          .addGroup(apiPanelLayout.createSequentialGroup()
+            .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addComponent(renderComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 529, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(renderResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
           .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
+            .addComponent(titleTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 358, Short.MAX_VALUE)
+            .addGap(9, 9, 9)
+            .addComponent(jSeparator4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(jLabel3)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(maxRetrySpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addGap(6, 6, 6)
             .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, 2, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(jLabel1)
-            .addGap(12, 12, 12)
-            .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)))
+            .addGap(3, 3, 3)
+            .addComponent(downloadWaitSpinner, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE))
+          .addComponent(jSeparator3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 701, Short.MAX_VALUE)
+          .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 701, Short.MAX_VALUE))
         .addContainerGap())
       .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 711, Short.MAX_VALUE))
+        .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 725, Short.MAX_VALUE))
     );
     apiPanelLayout.setVerticalGroup(
       apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
       .addGroup(apiPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+          .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+            .addComponent(maxRetrySpinner, javax.swing.GroupLayout.DEFAULT_SIZE, 20, Short.MAX_VALUE)
+            .addComponent(jLabel3))
+          .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+            .addComponent(jSeparator2, javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+              .addComponent(downloadWaitSpinner)
+              .addComponent(jLabel1)))
           .addGroup(apiPanelLayout.createSequentialGroup()
-            .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-              .addComponent(maxRetrySpinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-              .addComponent(jLabel3))
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
-          .addGroup(apiPanelLayout.createSequentialGroup()
-            .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-              .addComponent(jSeparator2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 20, Short.MAX_VALUE)
-              .addGroup(javax.swing.GroupLayout.Alignment.LEADING, apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                .addComponent(downloadWaitSpinner)
-                .addComponent(jLabel1)))
-            .addGap(10, 10, 10)))
+            .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+              .addComponent(jSeparator4, javax.swing.GroupLayout.Alignment.LEADING)
+              .addComponent(titleTextField, javax.swing.GroupLayout.Alignment.LEADING))
+            .addGap(11, 11, 11)))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+        .addComponent(jSeparator3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(renderComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(jLabel4)
+          .addComponent(renderResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-          .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(titleTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(saveResetButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(saveSubmitButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addComponent(saveComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
           .addComponent(jLabel2))
         .addContainerGap())
       .addGroup(apiPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, apiPanelLayout.createSequentialGroup()
-          .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 2, javax.swing.GroupLayout.PREFERRED_SIZE)
-          .addContainerGap(77, Short.MAX_VALUE)))
+        .addGroup(apiPanelLayout.createSequentialGroup()
+          .addComponent(statusPanelSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+          .addContainerGap(112, Short.MAX_VALUE)))
     );
 
     mainPanel.add(apiPanel, java.awt.BorderLayout.PAGE_END);
@@ -1529,11 +1656,11 @@ public class CrawlQueryPadView extends FrameView {
     statusPanel.setLayout(statusPanelLayout);
     statusPanelLayout.setHorizontalGroup(
       statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 711, Short.MAX_VALUE)
+      .addComponent(statusPanelSeparator, javax.swing.GroupLayout.DEFAULT_SIZE, 725, Short.MAX_VALUE)
       .addGroup(statusPanelLayout.createSequentialGroup()
         .addContainerGap()
         .addComponent(statusMessageLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 536, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 550, Short.MAX_VALUE)
         .addComponent(progressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addComponent(statusAnimationLabel)
@@ -1564,12 +1691,10 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JSpinner downloadWaitSpinner;
   private javax.swing.JButton filterButton;
   private javax.swing.JTable instTable;
-  private javax.swing.JButton jButton1;
-  private javax.swing.JButton jButton2;
-  private javax.swing.JComboBox jComboBox1;
   private javax.swing.JLabel jLabel1;
   private javax.swing.JLabel jLabel2;
   private javax.swing.JLabel jLabel3;
+  private javax.swing.JLabel jLabel4;
   private javax.swing.JPanel jPanel1;
   private javax.swing.JScrollPane jScrollPane1;
   private javax.swing.JScrollPane jScrollPane2;
@@ -1577,6 +1702,8 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JScrollPane jScrollPane4;
   private javax.swing.JSeparator jSeparator1;
   private javax.swing.JSeparator jSeparator2;
+  private javax.swing.JSeparator jSeparator3;
+  private javax.swing.JSeparator jSeparator4;
   private javax.swing.JSplitPane jSplitPane1;
   private javax.swing.JSplitPane jSplitPane2;
   private javax.swing.JSplitPane jSplitPane3;
@@ -1585,8 +1712,13 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JMenuBar menuBar;
   private javax.swing.JProgressBar progressBar;
   private javax.swing.JTextPane queryPane;
+  private javax.swing.JComboBox renderComboBox;
+  private javax.swing.JButton renderResetButton;
   private javax.swing.JTextPane resultPane;
   private javax.swing.JTable resultTable;
+  private javax.swing.JComboBox saveComboBox;
+  private javax.swing.JButton saveResetButton;
+  private javax.swing.JButton saveSubmitButton;
   private javax.swing.JButton setButton;
   private javax.swing.JButton sortButton;
   private javax.swing.JLabel statusAnimationLabel;
@@ -1611,5 +1743,8 @@ public class CrawlQueryPadView extends FrameView {
     private Connection conn = null;
     private CrawlExcecuteWorker worker = null;
     private boolean workerStop = false;
-    private List<String> extensions = null;
+    private List<String> extensions_of_save   = null;
+    private List<String> extensions_of_render = null;
+    private String resultTitle = null;
+    private File resultTextFile = null;
 }
