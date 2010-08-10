@@ -23,10 +23,10 @@ def ext_description():
 def call(API, data):
     """
     Main function of the extension.
-    This function must be returns (String title,File text).
+    This function must be returns (String title, File text).
     """
     resultArr = data.get("resultArr")
-    file = TempFileManager.createTempFile("email_extract", "txt")
+    file = TempFileManager.createTempFile("email_extract", ".txt")
     mailSet = set([])
     for loader in resultArr:
         try:

@@ -26,7 +26,7 @@ def call(API, data):
     This function must be returns (String title, File text).
     """
     resultArr = data.get("resultArr")
-    file = TempFileManager.createTempFile("email_extract", "txt")
+    file = TempFileManager.createTempFile("email_extract", ".txt")
     f = open(file.getPath(), "w")
     title = ""
     for i, loader in enumerate(resultArr):
