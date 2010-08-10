@@ -82,10 +82,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
       }
 
       logger.debug("size :" + tempSet.size());
-      worker.publish(
-        "Filtering " +
-          "Depth " + (i+1) + "/" + depth
-        );
+
       /*
        * 以下のフィルタの順序は、Locationを持つような、ブラウザからは
        * 意識されないURLを経由できるようにした方がいいのではないかという点で
@@ -98,18 +95,38 @@ public class LogicalOperationSet extends HashSet<Integer> {
        * を行っている。
        * Setの同一判定を行えば最後の処理は軽減できる。
        */
+      worker.publish(
+        "Crawling " +
+          "Depth " + (i+1) + "/" + depth +
+          "Filtering by condition(1)  1/4"
+        );
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size :" + tempSet.size());
 
+      worker.publish(
+        "Crawling " +
+          "Depth " + (i+1) + "/" + depth +
+          "Filtering by response code  2/4"
+        );
       logger.debug("ResponseCode Filter");
       tempSet = tempSet.getResponseCodeFiltered();
       logger.debug("size :" + tempSet.size());
 
+      worker.publish(
+        "Crawling " +
+          "Depth " + (i+1) + "/" + depth +
+          "Filtering by conent type  3/4"
+        );
       logger.debug("ContentType Filter");
       tempSet = tempSet.getContentTypeFiltered();
       logger.debug("size :" + tempSet.size());
 
+      worker.publish(
+        "Crawling " +
+          "Depth " + (i+1) + "/" + depth +
+          "Filtering by condition(2)  4/4"
+        );
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size :" + tempSet.size());

@@ -10,23 +10,38 @@ import org.slf4j.LoggerFactory;
 
 public class Downloader implements Runnable {
   protected static Logger logger = LoggerFactory.getLogger(Downloader.class);
+  //
   private boolean  completed = false;
-  private boolean  failed = false;
-  private int contentLength = -1;
+  private boolean  failed    = false;
+  //
+  private int contentLength  = -1;
   private int downloadedSize = 0;
-  private URL url = null;
+  //
+  private URL url         = null;
   private String protocol = null;
+  private boolean isHttp  = false;
+  //
   private URLConnection con = null;
+  //
   private File file = null;
+  //
   private Date startDate = null;
-  private Date endDate = null;
+  private Date endDate   = null;
+  //
+  private Map<String,List<String>> header = null;
+  
   public Downloader(String url)
   throws java.io.IOException {
     this.url = new URL(url);
     protocol = this.url.getProtocol().toLowerCase();
-    con = this.url.openConnection();
+    con      = this.url.openConnection();
     if (protocol.startsWith("http")) {
       logger.debug("protocol is http(s)");
+      isHttp = true;
+    }
+    if (isHttp) {
+      logger.debug("set Redirect: false");
+      logger.debug("set request headers");
       HttpURLConnection httpConnection = (HttpURLConnection)con;
       httpConnection.setInstanceFollowRedirects(false);
       httpConnection.setRequestProperty("Accept", "application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5");
@@ -40,7 +55,11 @@ public class Downloader implements Runnable {
     if (completed) {
       return;
     }
-    InputStream in = null;
+    logger.debug("start download");
+    //caching
+    getHeader();
+    
+    InputStream in   = null;
     OutputStream out = null;
     startDate = new Date();
     try {
@@ -54,9 +73,9 @@ public class Downloader implements Runnable {
         out.write(buf, 0, size);
       }
       contentLength = downloadedSize;
-      logger.debug("completed.");
+      logger.debug("download completed");
     } catch(Exception e) {
-      logger.error("failed. " + Utils.ThrowableToString(e));
+      logger.error("download failed: " + Utils.ThrowableToString(e));
       failed = true;
     } finally {
       if (in != null) {
@@ -72,9 +91,14 @@ public class Downloader implements Runnable {
     }
     completed = true;
     endDate = new Date();
+    if (isHttp) {
+      logger.debug("disconnect");
+      ((HttpURLConnection)con).disconnect();
+    }
+    con = null;
   }
   public void setCookie(String cookie) {
-    if (protocol.startsWith("http")) {
+    if (isHttp && !isCompleted()) {
       logger.debug("set cookie: " + cookie);
       HttpURLConnection httpConnection = (HttpURLConnection)con;
       httpConnection.setRequestProperty("Cookie", cookie);
@@ -101,9 +125,8 @@ public class Downloader implements Runnable {
     }
     if (downloadedSize <= contentLength) {
       return (float)downloadedSize / contentLength;
-    } else {
-      return 1.0f;
     }
+    return 1.0f;
   }
   public long getSize() {
     if (isCompleted() && !isFailed()) {
@@ -127,7 +150,13 @@ public class Downloader implements Runnable {
     throw new IOException();
   }
   public Map<String,List<String>> getHeader() {
-    return con.getHeaderFields();
+    if (null == header) {
+      if(!isCompleted()) { //null != con
+        header = con.getHeaderFields();
+        logger.debug("header is cached");
+      }
+    }
+    return header;
   }
   public String getProtocol() {
     return protocol;

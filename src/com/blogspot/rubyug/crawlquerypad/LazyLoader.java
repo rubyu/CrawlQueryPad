@@ -126,9 +126,8 @@ public class LazyLoader {
           setState(getUrl(), state);
         }
       }
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error(Utils.ThrowableToString(e));
-    } catch (UnsupportedEncodingException e) {
     } finally {
       if (null != rs) {
         try {
@@ -186,7 +185,7 @@ public class LazyLoader {
           setState(getUrl(), state);
         }
       }
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error(Utils.ThrowableToString(e));
     } finally {
       if (null != rs) {

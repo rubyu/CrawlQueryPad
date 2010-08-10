@@ -514,6 +514,7 @@ public class CrawlQueryPadView extends FrameView {
       String queryString = queryPane.getText();
       QueryParser parser = new QueryParser( new StringReader(queryString) );
 
+      logger.debug("Compiling ...");
       //命令リスト
       List<Object[]> instructions = new ArrayList<Object[]>();
       //エラーリスト
@@ -712,10 +713,10 @@ public class CrawlQueryPadView extends FrameView {
         String error = Utils.ThrowableToString(t);
         logger.error(error);
         statusMessageLabel.setText("Error");
-        messageTimer.restart();
         setStringToJTextArea(resultTextArea, error);
         return;
       }
+      logger.debug("compile is finished");
 
       model = (DefaultTableModel)instTable.getModel();
       model.setRowCount(0);
@@ -723,7 +724,7 @@ public class CrawlQueryPadView extends FrameView {
         model.addRow(arr);
       }
 
-      if ( instructions.size() < 2 ||  //empty
+      if ( instructions.size() < 2 ||  //empty or
            0 != throwables.size()      //has error
          ) {
         crawlButton.setEnabled(false);
@@ -734,6 +735,7 @@ public class CrawlQueryPadView extends FrameView {
       if ( 0 == throwables.size() && //no error
            doCrawl
          ) {
+        logger.debug("do crawl");
         worker = new CrawlExcecuteWorker(queryString, instructions);
         worker.addPropertyChangeListener(new PropertyChangeListener());
         worker.execute();
@@ -804,6 +806,7 @@ public class CrawlQueryPadView extends FrameView {
       }
     }
     class CrawlExcecuteWorker extends SwingWorker<List<Object[]>, String> {
+      protected Logger logger = LoggerFactory.getLogger(CrawlExcecuteWorker.class);
       String queryString = null;
       List<Object[]> instructions = null;
       public CrawlExcecuteWorker(String queryString, List<Object[]> insts) {
@@ -879,6 +882,7 @@ public class CrawlQueryPadView extends FrameView {
           } else {
             logger.debug("from(value): " + from);
           }
+          logger.debug("--------");
 
           if ( inst.equals("CONDITION") ) {
             List fromArr = pool.get((Integer)from);
@@ -1061,11 +1065,11 @@ public class CrawlQueryPadView extends FrameView {
           } else {
             throw new Exception("Unknown Class!");
           }
-
-          logger.debug("--------");
         }
         conn.commit();
+        logger.debug("cache comitted");
 
+        logger.debug("Creating result");
         Set<LazyLoader> result = new HashSet<LazyLoader>();
         Object rootObj = pool.get(0).get(0);
         if (rootObj instanceof LogicalOperationSet) {
@@ -1079,6 +1083,7 @@ public class CrawlQueryPadView extends FrameView {
         LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
         //sort
         publish("Sorting...");
+        logger.debug("Sorting...");
         for (Object o: sorts) {
           if (o instanceof Cond) {
             Cond cond = (Cond)o;
@@ -1108,28 +1113,9 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
-
-        List<Object[]> rows = new ArrayList<Object[]>();
-        for (int i=0; i < resultArr.length; i++) {
-          LazyLoader loader = resultArr[i];
-          String title = loader.getTitle();
-          if (null != title && 100 < title.length()) {
-            title = title.substring(0, 100); //切り捨て
-          }
-          String text  = loader.getText();
-          if (null != text && 100 < text.length()) {
-            text = text.substring(0, 100); //切り捨て
-          }
-          rows.add(
-            new Object[]{
-              loader.getId(),
-              loader.getFullUrl(),
-              title,
-              text
-            }
-          );
-        }
-        
+        //
+        publish("Rendering ...");
+        logger.debug("Rendering ...");
         try {
           logger.info("call: " + renderComboBox.getSelectedItem());
           int index = renderComboBox.getSelectedIndex();
@@ -1157,7 +1143,30 @@ public class CrawlQueryPadView extends FrameView {
           logger.info("render plugin(" + ext_name + ") returns valid result.");
         } catch (Exception ex) {
           logger.error(Utils.ThrowableToString(ex));
-          throw new Exception(ex);
+          throw new Exception("Render Plugin threw an exception: " + ex);
+        }
+        //
+        publish("Building GUI data ...");
+        logger.debug("Building GUI data ...");
+        List<Object[]> rows = new ArrayList<Object[]>();
+        for (int i=0; i < resultArr.length; i++) {
+          LazyLoader loader = resultArr[i];
+          String title = loader.getTitle();
+          if (null != title && 100 < title.length()) {
+            title = title.substring(0, 100); //切り捨て
+          }
+          String text  = loader.getText();
+          if (null != text && 100 < text.length()) {
+            text = text.substring(0, 100); //切り捨て
+          }
+          rows.add(
+            new Object[]{
+              loader.getId(),
+              loader.getFullUrl(),
+              title,
+              text
+            }
+          );
         }
         return rows;
       }
@@ -1165,11 +1174,11 @@ public class CrawlQueryPadView extends FrameView {
       protected void process(List<String> chunks) {
         String text = chunks.get(chunks.size() - 1);
         statusMessageLabel.setText((text == null) ? "" : text);
-        //messageTimer.restart();
       }
       @Override
       protected void done() {
-        publish("");
+        publish("Done");
+        logger.debug("Done");
         try {
           List<Object[]> rows = get();
           
@@ -1198,6 +1207,7 @@ public class CrawlQueryPadView extends FrameView {
             }
             setStringToJTextArea(resultTextArea, text);
             publish("Ready");
+            logger.debug("Ready");
             //enable apiPanel
             saveSubmitButton.setEnabled(true);
           }
@@ -1205,15 +1215,15 @@ public class CrawlQueryPadView extends FrameView {
         } catch (java.util.concurrent.CancellationException e) {
           //thread的に、ここよりdoInBackground()内での処理の方が後になる。
           publish("Cancelled");
+          logger.debug("Cancelled");
         } catch (Exception e) {
           publish("Error");
           String error = Utils.ThrowableToString(e);
-          logger.error(error);
+          logger.error("Error: " + error);
           setStringToJTextArea(resultTextArea, error);
         }
       }
     }
-
     @Action
     public void showAboutBox() {
         if (aboutBox == null) {
