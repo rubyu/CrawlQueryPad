@@ -153,7 +153,7 @@ public class Downloader implements Runnable {
     if (null == header) {
       if(!isCompleted()) { //null != con
         header = con.getHeaderFields();
-        logger.debug("header is cached");
+        logger.debug("header cached");
       }
     }
     return header;

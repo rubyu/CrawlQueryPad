@@ -26,6 +26,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return this.manager;
   }
   public LogicalOperationSet getCrawled(int depth, List<Cond> conds, CrawlQueryPadView.CrawlExcecuteWorker worker) {
+    logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet     = this;
     LogicalOperationSet currentSet = this;
     LogicalOperationSet tempSet    = null;
@@ -38,6 +39,12 @@ public class LogicalOperationSet extends HashSet<Integer> {
       for (int id : currentSet) {
         current_i++;
         LazyLoader loader = manager.getLazyLoader(conn, id);
+        logger.debug(
+          "Crawling " +
+            "Depth " + (i+1) + "/" + depth + ", " +
+            "Item " + current_i + "/" + current_size + " " +
+            "Id " + id + ": " + loader.getUrl()
+          );
         worker.publish(
           "Crawling " +
             "Depth " + (i+1) + "/" + depth + ", " +
@@ -81,7 +88,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
         break;
       }
 
-      logger.debug("size :" + tempSet.size());
+      logger.debug("size: " + tempSet.size());
 
       /*
        * 以下のフィルタの順序は、Locationを持つような、ブラウザからは
@@ -97,39 +104,39 @@ public class LogicalOperationSet extends HashSet<Integer> {
        */
       worker.publish(
         "Crawling " +
-          "Depth " + (i+1) + "/" + depth +
-          "Filtering by condition(1)  1/4"
+          "Depth " + (i+1) + "/" + depth + " " +
+          "Filtering by Condition(1)  1/4"
         );
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
-      logger.debug("size :" + tempSet.size());
+      logger.debug("size: " + tempSet.size());
 
       worker.publish(
         "Crawling " +
-          "Depth " + (i+1) + "/" + depth +
-          "Filtering by response code  2/4"
+          "Depth " + (i+1) + "/" + depth + " " +
+          "Filtering by ResponseCode  2/4"
         );
       logger.debug("ResponseCode Filter");
       tempSet = tempSet.getResponseCodeFiltered();
-      logger.debug("size :" + tempSet.size());
+      logger.debug("size: " + tempSet.size());
 
       worker.publish(
         "Crawling " +
-          "Depth " + (i+1) + "/" + depth +
-          "Filtering by conent type  3/4"
+          "Depth " + (i+1) + "/" + depth + " " +
+          "Filtering by ContentType  3/4"
         );
       logger.debug("ContentType Filter");
       tempSet = tempSet.getContentTypeFiltered();
-      logger.debug("size :" + tempSet.size());
+      logger.debug("size: " + tempSet.size());
 
       worker.publish(
         "Crawling " +
-          "Depth " + (i+1) + "/" + depth +
+          "Depth " + (i+1) + "/" + depth + " " +
           "Filtering by condition(2)  4/4"
         );
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
-      logger.debug("size :" + tempSet.size());
+      logger.debug("size: " + tempSet.size());
 
       currentSet = tempSet;
       newSet = newSet.getUnion(tempSet);
@@ -137,10 +144,12 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getResponseCodeFiltered() {
+    logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
     boolean hasRedirect = false;
     for (Integer id : this) {
       LazyLoader loader = manager.getLazyLoader(conn, id);
+      logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
       String responseCode = header.getFirstOr(null, "");
       String location     = header.getFirstOr("location", null);
@@ -151,41 +160,53 @@ public class LogicalOperationSet extends HashSet<Integer> {
           hasRedirect = true;
           int newId = manager.register(location);
           newSet.add(newId);
-          logger.debug("redirect: " + loader.getUrl() + " -> " + location);
+          logger.debug("redirected -> " + location);
+        } else {
+          logger.debug("has location but is invalid");
         }
         continue;
       }
       if (-1 != responseCode.indexOf("200")) { //OK
         newSet.add(id);
-        logger.debug("url: " + loader.getUrl());
+        logger.debug("passed");
         continue;
+      } else {
+        logger.debug("not passed");
       }
     }
     if (hasRedirect) {
+      logger.debug("recursive filtering");
       newSet = newSet.getResponseCodeFiltered(); //LOOP
     }
     return newSet;
   }
 
   public LogicalOperationSet getContentTypeFiltered() {
+    logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
     for (Integer id : this) {
       LazyLoader loader = manager.getLazyLoader(conn, id);
+      logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
       String contentType = header.getFirstOr("content-type", null);
       if (//contentType == null ||
           -1 != contentType.indexOf("htm") ||
           -1 != contentType.indexOf("text/plain") ) {
         newSet.add(id);
+        logger.debug("passed");
+      } else {
+        logger.debug("not passed");
       }
     }
     return newSet;
   }
 
   public LogicalOperationSet getCondsFiltered(List<Cond> conds) {
+    logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
     for (Integer id : this) {
       LazyLoader loader = manager.getLazyLoader(conn, id);
+      logger.debug("checking: " + loader.getUrl());
       boolean match = true;
       for (Cond cond : conds) {
         if (cond.test(conn, loader)) {
@@ -198,6 +219,9 @@ public class LogicalOperationSet extends HashSet<Integer> {
       }
       if (match) {
         newSet.add(id);
+        logger.debug("passed");
+      } else {
+        logger.debug("not passed");
       }
     }
     return newSet;

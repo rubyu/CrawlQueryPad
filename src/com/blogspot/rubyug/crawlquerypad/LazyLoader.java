@@ -336,7 +336,7 @@ public class LazyLoader {
       prep.setClob(1, sr);
       prep.setString(2, url);
       prep.execute();
-      logger.debug("State saved");
+      logger.debug("state saved");
     } finally {
       if (sr != null) {
         try {
@@ -359,7 +359,7 @@ public class LazyLoader {
       prep.setClob(1, sr);
       prep.setString(2, url);
       prep.execute();
-      logger.debug("Header saved");
+      logger.debug("header saved");
     } finally {
       if (sr != null) {
         try {
@@ -380,7 +380,7 @@ public class LazyLoader {
       prep.setBinaryStream(1, content);
       prep.setString(2, url);
       prep.execute();
-      logger.debug("Content saved");
+      logger.debug("content saved");
     } finally {
       if (content != null) {
         try {
@@ -400,7 +400,7 @@ public class LazyLoader {
     prep.setString(1, title);
     prep.setString(2, url);
     prep.execute();
-    logger.debug("Title saved");
+    logger.debug("title saved");
   }
   private void setText(String url, String text)
   throws SQLException {
@@ -413,7 +413,7 @@ public class LazyLoader {
     prep.setString(1, text);
     prep.setString(2, url);
     prep.execute();
-    logger.debug("Text saved");
+    logger.debug("text saved");
   }
   private ResultSet getResultSet(String url)
   throws SQLException {

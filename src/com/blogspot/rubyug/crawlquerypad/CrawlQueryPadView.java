@@ -712,11 +712,12 @@ public class CrawlQueryPadView extends FrameView {
       } catch (Throwable t) {
         String error = Utils.ThrowableToString(t);
         logger.error(error);
-        statusMessageLabel.setText("Error");
+        statusMessageLabel.setText("Query syntax error has occurred!");
         setStringToJTextArea(resultTextArea, error);
         return;
       }
-      logger.debug("compile is finished");
+      statusMessageLabel.setText("Compile finished");
+      logger.debug("Compile finished");
 
       model = (DefaultTableModel)instTable.getModel();
       model.setRowCount(0);
@@ -735,7 +736,7 @@ public class CrawlQueryPadView extends FrameView {
       if ( 0 == throwables.size() && //no error
            doCrawl
          ) {
-        logger.debug("do crawl");
+        logger.debug("start crawling");
         worker = new CrawlExcecuteWorker(queryString, instructions);
         worker.addPropertyChangeListener(new PropertyChangeListener());
         worker.execute();
@@ -1052,11 +1053,14 @@ public class CrawlQueryPadView extends FrameView {
             for (Object o : fromArr) {
               String url = (String)DomUtils.getSplitedByAnchor((String)o)[0];
               if (!DomUtils.isValidURL(url)) {
+                logger.debug("invalid url: " + url);
                 continue;
               }
               int urlId = manager.register(url);
               urls.add( urlId );
+              logger.debug("urls.add id: " + urlId + " url: " + url);
             }
+            //condによるフィルタリングは行わない・行えない
             urls = urls.getResponseCodeFiltered();
             urls = urls.getContentTypeFiltered();
             pool.get(to).add( urls );
