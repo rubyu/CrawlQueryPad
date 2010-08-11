@@ -160,22 +160,23 @@ public class CrawlQueryPadView extends FrameView {
       logger.info("extension initialize");
       extensions_of_save   = new ArrayList<String>();
       extensions_of_render = new ArrayList<String>();
-      File extensionDir = new File( getCurrent() + "/extension" );
-      if (extensionDir.exists()) {
+      String extensionDirPath = getCurrent() + "/extension";
+      if (new File(extensionDirPath).exists()) {
         PythonInterpreter pyi = new PythonInterpreter();
         pyi.exec("import sys");
-        File extensionLibDir = new File(extensionDir.getAbsolutePath() + "/Lib");
-        if (extensionLibDir.exists()) {
-          logger.info("sys.path.append('" + extensionLibDir.getAbsolutePath() + "')");
-          pyi.exec("sys.path.append('" + extensionLibDir.getAbsolutePath() + "')");
+        String extensionLibDirPath = extensionDirPath + "/Lib";
+        if (new File(extensionLibDirPath).exists()) {
+          logger.info("sys.path.append('" + extensionLibDirPath + "')");
+          pyi.exec("sys.path.append('" + extensionLibDirPath + "')");
         }
-        File extensionPluginDir = new File(extensionDir.getAbsolutePath() + "/plugin");
-        if (extensionPluginDir.exists()) {
-          logger.info("sys.path.append('" + extensionPluginDir.getAbsolutePath() + "')");
-          pyi.exec("sys.path.append('" + extensionPluginDir.getAbsolutePath() + "')");
+        String extensionPluginDirPath = extensionDirPath + "/plugin";
+        if (new File(extensionPluginDirPath).exists()) {
+          logger.info("sys.path.append('" + extensionPluginDirPath + "')");
+          pyi.exec("sys.path.append('" + extensionPluginDirPath + "')");
         }
 
-        File pluginDir = new File(extensionPluginDir.getAbsolutePath() + "/save");
+        String pluginDirPath = extensionPluginDirPath + "/save";
+        File pluginDir = new File(pluginDirPath);
         if (pluginDir.exists() && pluginDir.isDirectory()) {
           for (File plugin: pluginDir.listFiles()) {
             if (!plugin.exists() ||
@@ -198,7 +199,8 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         }
-        pluginDir = new File(extensionPluginDir.getAbsolutePath() + "/render");
+        pluginDirPath = extensionPluginDirPath + "/render";
+        pluginDir = new File(pluginDirPath);
         if (pluginDir.exists() && pluginDir.isDirectory()) {
           for (File plugin: pluginDir.listFiles()) {
             if (!plugin.exists() ||
