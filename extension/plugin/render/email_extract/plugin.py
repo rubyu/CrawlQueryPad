@@ -32,7 +32,7 @@ def call(API, data):
     mailSet = set([])
     for i, loader in enumerate(resultArr):
         if worker.isCancelled():
-            break
+            return "CANCELLED"
         worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
         try:
             ins    = loader.getContent()

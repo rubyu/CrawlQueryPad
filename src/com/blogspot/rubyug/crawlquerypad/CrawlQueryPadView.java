@@ -808,7 +808,7 @@ public class CrawlQueryPadView extends FrameView {
           Object  op2          =                   instruction[3];
 
           if (worker.isCancelled()) {
-            logger.info("worker is cancelled.");
+            logger.info("worker is cancelled");
             publish("Cancelled");
             throw new java.util.concurrent.CancellationException();
           }
@@ -1020,6 +1020,11 @@ public class CrawlQueryPadView extends FrameView {
         Set<LazyLoader> result = new HashSet<LazyLoader>();
         Object rootObj = pool.get(0).get(0);
         if (rootObj instanceof LogicalOperationSet) {
+          if (worker.isCancelled()) {
+            logger.info("worker is cancelled");
+            publish("Cancelled");
+            throw new java.util.concurrent.CancellationException();
+          }
           LogicalOperationSet set = (LogicalOperationSet)rootObj;
           for (Integer id : set) {
             LazyLoader loader = manager.getLazyLoader(conn, id);
@@ -1032,6 +1037,11 @@ public class CrawlQueryPadView extends FrameView {
         publish("Sorting...");
         logger.debug("Sorting...");
         for (Object o: sorts) {
+          if (worker.isCancelled()) {
+            logger.info("worker is cancelled");
+            publish("Cancelled");
+            throw new java.util.concurrent.CancellationException();
+          }
           if (o instanceof Cond) {
             Cond cond = (Cond)o;
             Arrays.sort( resultArr, new Comparator_Cond(conn, cond) );
@@ -1079,25 +1089,40 @@ public class CrawlQueryPadView extends FrameView {
           Object ret = pyi.eval(pluginPath + ".call(____API____, ____DATA____)");
           if (ret instanceof PyTuple) {
             PyTuple retTuple = (PyTuple)ret;
-            if (2 <= retTuple.__len__()) {
+            if (2 == retTuple.__len__()) {
               resultTitle    = (String)retTuple.get(0);
               resultTextFile = (File)retTuple.get(1);
             } else {
               throw new Exception("invalid result");
             }
           } else {
-            throw new Exception("Plugin not returns PyTuple Object!");
+            if (ret instanceof PyString &&
+                ret.toString().equals("CANCELLED")) {
+              //exceptionがマトモに取れないので、plugin内でキャンセルを検出したら文字列を返す
+              logger.info("worker is cancelled");
+              publish("Cancelled");
+              worker.cancel(true);
+              throw new java.util.concurrent.CancellationException();
+            } else {
+              throw new Exception("Plugin not returns PyTuple Object");
+            }
           }
-          logger.info("render plugin(" + ext_name + ") returns valid result.");
+          logger.info("render plugin(" + ext_name + ") returns valid result");
         } catch (Exception ex) {
-          logger.error(Utils.ThrowableToString(ex));
-          throw new Exception("Render Plugin threw an exception: " + ex);
+          logger.error("Error occurred when rendering");
+          publish("Error occurred when rendering");
+          throw ex;
         }
         //
         publish("Building GUI data ...");
         logger.debug("Building GUI data ...");
         List<Object[]> rows = new ArrayList<Object[]>();
         for (int i=0; i < resultArr.length; i++) {
+          if (worker.isCancelled()) {
+            logger.info("worker is cancelled");
+            publish("Cancelled");
+            throw new java.util.concurrent.CancellationException();
+          }
           LazyLoader loader = resultArr[i];
           String title = loader.getTitle();
           if (null != title && 100 < title.length()) {
@@ -1161,7 +1186,7 @@ public class CrawlQueryPadView extends FrameView {
           }
 
         } catch (java.util.concurrent.CancellationException e) {
-          //thread的に、ここよりdoInBackground()内での処理の方が後になる。
+          //thread的に、ここよりdoInBackground()内での処理の方が後になることがある
           publish("Cancelled");
           logger.debug("Cancelled");
         } catch (Exception e) {

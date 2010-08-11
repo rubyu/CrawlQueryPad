@@ -33,7 +33,7 @@ def call(API, data):
     title = ""
     for i, loader in enumerate(resultArr):
         if worker.isCancelled():
-            break
+            return "CANCELLED"
         worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
         if 0 == i:
             title = loader.getTitle()
