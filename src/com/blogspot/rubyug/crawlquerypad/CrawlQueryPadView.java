@@ -26,6 +26,8 @@ import javax.swing.Timer;
 import javax.swing.text.*;
 import javax.swing.event.*;
 import java.awt.Color;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import javax.swing.undo.*;
 import javax.swing.table.DefaultTableModel;
 
@@ -122,11 +124,19 @@ public class CrawlQueryPadView extends FrameView {
           }
       });
 
-      logger.info("database initialize");
+      logger.info("getting database connection");
+      try {
+        conn = DB.getConnection();
+      } catch(Exception e) {
+        logger.error(Utils.ThrowableToString(e));
+        app.exit();
+      }
       /*
+      logger.info("database initialize");
+      
       State args = ((CrawlQueryPadApp)app).getArgState();
       String profileName = args.getFirstOr("profileName", null); //綺麗じゃない
-      */
+      
       String profileName = "default";
       //DB
       connectionPool = JdbcConnectionPool.create(
@@ -155,7 +165,8 @@ public class CrawlQueryPadView extends FrameView {
         logger.error(Utils.ThrowableToString(e));
         app.exit();
       }
-
+      */
+      
       //exts
       logger.info("extension initialize");
       extensions_of_save   = new ArrayList<String>();
@@ -190,7 +201,7 @@ public class CrawlQueryPadView extends FrameView {
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("plugin registered; name: " + name + " description:" + desc);
+              logger.info("plugin registered; name: " + name + " description: " + desc);
               extensions_of_save.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)saveComboBox.getModel();
               model.addElement(name + ": " + desc);
@@ -214,7 +225,7 @@ public class CrawlQueryPadView extends FrameView {
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("plugin registered; name: " + name + " description:" + desc);
+              logger.info("plugin registered; name: " + name + " description: " + desc);
               extensions_of_render.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)renderComboBox.getModel();
               model.addElement(name + ": " + desc);
@@ -371,6 +382,82 @@ public class CrawlQueryPadView extends FrameView {
         invokeQueryParse(true);
       }
 
+      //restore state
+      logger.info("restore state");
+      try {
+        State global = DB.Global.getState(conn, "window-state");
+        //download wait
+        int value;
+        value = (int)global.getFirstOr("download-wait", -1L);
+        logger.debug("download-wait: " + value);
+        if (-1 < value) {
+          downloadWaitSpinner.setValue(value);
+        }
+        //max retry
+        value = (int)global.getFirstOr("max-retry", -1L);
+        logger.debug("max-retry: " + value);
+        if (-1 < value) {
+          maxRetrySpinner.setValue(value);
+        }
+        //plugin
+        int index;
+        String pluginPath;
+        pluginPath = global.getFirstOr("plugin-render-selected", "");
+        index      = extensions_of_render.indexOf(pluginPath);
+        logger.debug("plugin-render-selected: " + pluginPath);
+        if (-1 < index) {
+          renderComboBox.setSelectedIndex(index);
+        }
+        pluginPath = global.getFirstOr("plugin-save-selected", "");
+        index      = extensions_of_save.indexOf(pluginPath);
+        logger.debug("plugin-save-selected: " + pluginPath);
+        if (-1 < index) {
+          saveComboBox.setSelectedIndex(index);
+        }
+      } catch (Exception e) {
+        logger.error("error occurred when restore states: " + Utils.ThrowableToString(e));
+      }
+
+      //save state
+      getFrame().addWindowListener(new WindowAdapter(){
+        @Override
+        public void windowClosing(WindowEvent event) {
+          try {
+            State global = DB.Global.getState(conn, "window-state");
+            //download wait
+            Integer value;
+            value = (Integer)downloadWaitSpinner.getValue();
+            logger.debug("download-wait: " + value);
+            global.set("download-wait", value.toString());
+            //max retry
+            value = (Integer)maxRetrySpinner.getValue();
+            logger.debug("max-retry: " + value);
+            global.set("max-retry", value.toString());
+            //plugin render
+            int index;
+            String pluginPath;
+            index      = renderComboBox.getSelectedIndex();
+            pluginPath = extensions_of_render.get(index);
+            logger.debug("plugin-render-selected: " + pluginPath);
+            global.set("plugin-render-selected", pluginPath);
+            //plugin save
+            index      = saveComboBox.getSelectedIndex();
+            pluginPath = extensions_of_save.get(index);
+            logger.debug("plugin-save-selected: " + pluginPath);
+            global.set("plugin-save-selected", pluginPath);
+            
+            DB.Global.setState(conn, "window-state", global);
+            conn.commit();
+            conn.close();
+          } catch(Exception e) {
+            logger.error("error occurred when save states: " + Utils.ThrowableToString(e));
+          }
+
+          
+        }
+      });
+
+      
     }
 
     void insertStringToJTextPane(JTextPane pane, String text) {
@@ -709,7 +796,7 @@ public class CrawlQueryPadView extends FrameView {
 
         if (null == conn) {
           logger.warn("Missing connection. Retry to get connection.");
-          conn = connectionPool.getConnection();
+          conn = DB.getConnection();
         }
 
         LazyLoaderManager manager = new LazyLoaderManager(conn);
@@ -1588,7 +1675,6 @@ public class CrawlQueryPadView extends FrameView {
     private final UndoManager undomanager;
     private final StyledDocument queryPaneDoc;
     private SimpleNode query = null;
-    static JdbcConnectionPool connectionPool = null;
     private Connection conn = null;
     private CrawlExcecuteWorker worker = null;
     private List<String> extensions_of_save   = null;

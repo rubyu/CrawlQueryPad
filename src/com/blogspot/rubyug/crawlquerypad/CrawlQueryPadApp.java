@@ -70,6 +70,13 @@ public class CrawlQueryPadApp extends SingleFrameApplication {
         /*
         argument = args;
          */
-        launch(CrawlQueryPadApp.class, args);
+      logger.info("database initialize");
+      try {
+        DB.initialize("default");
+      } catch(Exception e) {
+        logger.error(Utils.ThrowableToString(e));
+        return;
+      }
+      launch(CrawlQueryPadApp.class, args);
     }
 }
