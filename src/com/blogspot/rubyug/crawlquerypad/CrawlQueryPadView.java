@@ -131,41 +131,6 @@ public class CrawlQueryPadView extends FrameView {
         logger.error(Utils.ThrowableToString(e));
         app.exit();
       }
-      /*
-      logger.info("database initialize");
-      
-      State args = ((CrawlQueryPadApp)app).getArgState();
-      String profileName = args.getFirstOr("profileName", null); //綺麗じゃない
-      
-      String profileName = "default";
-      //DB
-      connectionPool = JdbcConnectionPool.create(
-          "jdbc:h2:~/.cqpad/" + profileName + ";DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa"
-        );
-      try {
-        conn = connectionPool.getConnection();
-        Statement st = conn.createStatement();
-        st.execute(
-          "DROP TABLE IF EXISTS response_cache;");
-        st.execute(
-          "CREATE TABLE IF NOT EXISTS response_cache(" +
-          "url VARCHAR PRIMARY KEY NOT NULL," +
-          "state CLOB NOT NULL," +
-          "header CLOB," +
-          "title CLOB," +
-          "text CLOB," +
-          "content BLOB" +
-          ");");
-        st.execute(
-          "CREATE TABLE IF NOT EXISTS api_state(" +
-          "key VARCHAR NOT NULL PRIMARY KEY," +
-          "state CLOB NOT NULL" +
-          ");");
-      } catch (SQLException e) {
-        logger.error(Utils.ThrowableToString(e));
-        app.exit();
-      }
-      */
       
       //exts
       logger.info("extension initialize");
@@ -244,6 +209,7 @@ public class CrawlQueryPadView extends FrameView {
               String pluginPath = extensions_of_save.get(index);
               PythonInterpreter pyi = new PythonInterpreter();
               pyi.exec("import " + pluginPath);
+              pyi.exec("reload(" + pluginPath + ")");
               PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
               Map map = new HashMap();
               logger.debug("title: " + resultTitle);
@@ -1085,6 +1051,7 @@ public class CrawlQueryPadView extends FrameView {
           String pluginPath = extensions_of_render.get(index);
           PythonInterpreter pyi = new PythonInterpreter();
           pyi.exec("import " + pluginPath);
+          pyi.exec("reload(" + pluginPath + ")");
           PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
           Map map = new HashMap();
           map.put("resultArr", resultArr);
