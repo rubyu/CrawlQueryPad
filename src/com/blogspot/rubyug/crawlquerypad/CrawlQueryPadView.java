@@ -259,8 +259,9 @@ public class CrawlQueryPadView extends FrameView {
               //
               statusMessageLabel.setText("save plugin(" + ext_name + ") returns: " + result);
             } catch (Exception ex) {
-              statusMessageLabel.setText("save plugin failed!");
-              logger.error(Utils.ThrowableToString(ex));
+              //textareaに書き出さないほうがいい？
+              statusMessageLabel.setText("PluginError: error occurred when saving");
+              logger.error("PluginError: error occurred when saving: " + Utils.ThrowableToString(ex));
             }
           }
         });
@@ -762,6 +763,11 @@ public class CrawlQueryPadView extends FrameView {
         invokeHighlightUpdate();
       }
     }
+    public class PluginErrorException extends Exception {
+      public PluginErrorException(Throwable t) {
+        super(t);
+      }
+    }
     public class CrawlExcecuteWorker extends SwingWorker<List<Object[]>, String> {
       protected Logger logger = LoggerFactory.getLogger(CrawlExcecuteWorker.class);
       String queryString = null;
@@ -1111,7 +1117,7 @@ public class CrawlQueryPadView extends FrameView {
         } catch (Exception ex) {
           logger.error("Error occurred when rendering");
           publish("Error occurred when rendering");
-          throw ex;
+          throw new PluginErrorException(ex);
         }
         //
         publish("Building GUI data ...");
@@ -1190,9 +1196,17 @@ public class CrawlQueryPadView extends FrameView {
           publish("Cancelled");
           logger.debug("Cancelled");
         } catch (Exception e) {
-          publish("Error");
-          String error = Utils.ThrowableToString(e);
-          logger.error("Error: " + error);
+          Throwable t = e.getCause();
+          String error;
+          if (null != t && t instanceof PluginErrorException) {
+            error = Utils.ThrowableToString(t);
+            publish("PluginError: error occurred when rendering");
+            logger.debug("PluginError: error occurred when Rendering: " + error);
+          } else {
+            error = Utils.ThrowableToString(e);
+            publish("Error");
+            logger.error("Error: " + error);
+          }
           setStringToJTextArea(resultTextArea, error);
         }
       }
