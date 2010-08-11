@@ -5,13 +5,35 @@
 package com.blogspot.rubyug.crawlquerypad;
 
 import org.jdesktop.application.Action;
+import java.io.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
-
+    protected static Logger logger = LoggerFactory.getLogger(CrawlQueryPadAboutBox.class);
     public CrawlQueryPadAboutBox(java.awt.Frame parent) {
-        super(parent);
-        initComponents();
-        getRootPane().setDefaultButton(closeButton);
+      super(parent);
+      initComponents();
+      getRootPane().setDefaultButton(closeButton);
+
+      InputStream versionIn = null;
+      try {
+        versionIn = this.getClass().getResource("/version.xml").openStream();
+        State version = new State(versionIn);
+        String ver       = version.getFirstOr("version", "-");
+        String rev       = version.getFirstOr("revno", "-");
+        String buildDate = version.getFirstOr("build-date", "-");
+        appVersionLabel.setText(ver + "." + rev + " build@" + buildDate);
+      } catch(Exception e) {
+        logger.error(Utils.ThrowableToString(e));
+      } finally {
+        if (versionIn != null) {
+          try {
+            versionIn.close();
+          } catch(Exception e) {}
+        }
+      }
     }
 
     @Action public void closeAboutBox() {
@@ -29,12 +51,11 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
     closeButton = new javax.swing.JButton();
     javax.swing.JLabel appTitleLabel = new javax.swing.JLabel();
     javax.swing.JLabel versionLabel = new javax.swing.JLabel();
-    javax.swing.JLabel appVersionLabel = new javax.swing.JLabel();
+    appVersionLabel = new javax.swing.JLabel();
     javax.swing.JLabel vendorLabel = new javax.swing.JLabel();
     javax.swing.JLabel appVendorLabel = new javax.swing.JLabel();
     javax.swing.JLabel homepageLabel = new javax.swing.JLabel();
     javax.swing.JLabel appHomepageLabel = new javax.swing.JLabel();
-    javax.swing.JLabel appDescLabel = new javax.swing.JLabel();
     javax.swing.JLabel imageLabel = new javax.swing.JLabel();
 
     setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -73,9 +94,6 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
     appHomepageLabel.setText(resourceMap.getString("Application.homepage")); // NOI18N
     appHomepageLabel.setName("appHomepageLabel"); // NOI18N
 
-    appDescLabel.setText(resourceMap.getString("appDescLabel.text")); // NOI18N
-    appDescLabel.setName("appDescLabel"); // NOI18N
-
     imageLabel.setIcon(resourceMap.getIcon("imageLabel.icon")); // NOI18N
     imageLabel.setName("imageLabel"); // NOI18N
 
@@ -87,6 +105,8 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
         .addComponent(imageLabel)
         .addGap(18, 18, 18)
         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+          .addComponent(appTitleLabel, javax.swing.GroupLayout.Alignment.LEADING)
+          .addComponent(closeButton)
           .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
               .addComponent(versionLabel)
@@ -94,12 +114,9 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
               .addComponent(homepageLabel))
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-              .addComponent(appVersionLabel)
-              .addComponent(appVendorLabel)
-              .addComponent(appHomepageLabel)))
-          .addComponent(appTitleLabel, javax.swing.GroupLayout.Alignment.LEADING)
-          .addComponent(appDescLabel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 266, Short.MAX_VALUE)
-          .addComponent(closeButton))
+              .addComponent(appVersionLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 215, Short.MAX_VALUE)
+              .addComponent(appVendorLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 215, Short.MAX_VALUE)
+              .addComponent(appHomepageLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 215, Short.MAX_VALUE))))
         .addContainerGap())
     );
     layout.setVerticalGroup(
@@ -108,12 +125,10 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
       .addGroup(layout.createSequentialGroup()
         .addContainerGap()
         .addComponent(appTitleLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-        .addComponent(appDescLabel)
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+        .addGap(25, 25, 25)
         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(versionLabel)
-          .addComponent(appVersionLabel))
+          .addComponent(appVersionLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 13, javax.swing.GroupLayout.PREFERRED_SIZE))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(vendorLabel)
@@ -122,7 +137,7 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
           .addComponent(homepageLabel)
           .addComponent(appHomepageLabel))
-        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 19, Short.MAX_VALUE)
+        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 43, Short.MAX_VALUE)
         .addComponent(closeButton)
         .addContainerGap())
     );
@@ -131,6 +146,7 @@ public class CrawlQueryPadAboutBox extends javax.swing.JDialog {
   }// </editor-fold>//GEN-END:initComponents
     
   // Variables declaration - do not modify//GEN-BEGIN:variables
+  private javax.swing.JLabel appVersionLabel;
   private javax.swing.JButton closeButton;
   // End of variables declaration//GEN-END:variables
     
