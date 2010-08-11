@@ -127,7 +127,7 @@
 
 
       <!-- copy -->
-      <copydir src="${basedir}/ext" dest="${dist.dir}/ext" />
+      <copydir src="${basedir}/extension" dest="${dist.dir}/extention" />
 
       <!-- move dist contents to publish directory -->
       <move todir="${dist.dir}/cqpad">
