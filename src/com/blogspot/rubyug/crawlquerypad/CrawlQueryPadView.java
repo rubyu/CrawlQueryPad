@@ -4,6 +4,13 @@
 
 package com.blogspot.rubyug.crawlquerypad;
 
+import com.blogspot.rubyug.crawlquerypad.condition.*;
+import com.blogspot.rubyug.crawlquerypad.comparators.*;
+
+import com.blogspot.rubyug.crawlquery.*;
+import com.blogspot.rubyug.crawlquery.utils.*;
+import com.blogspot.rubyug.crawlquery.utils.CQCompiler.CQCompileResult;
+
 import org.jdesktop.application.Action;
 import org.jdesktop.application.ResourceMap;
 import org.jdesktop.application.SingleFrameApplication;
@@ -20,12 +27,8 @@ import javax.swing.text.*;
 import javax.swing.event.*;
 import java.awt.Color;
 import javax.swing.undo.*;
-
-import com.blogspot.rubyug.crawlquery.*;
 import javax.swing.table.DefaultTableModel;
 
-import com.blogspot.rubyug.crawlquerypad.condition.*;
-import com.blogspot.rubyug.crawlquerypad.comparators.*;
 import org.h2.jdbcx.JdbcConnectionPool;
 import java.sql.*;
 import java.net.*;
@@ -255,7 +258,7 @@ public class CrawlQueryPadView extends FrameView {
               //
               statusMessageLabel.setText("State is cleared");
             } catch (Exception ex) {
-              logger.error(Utils.ThrowableToString(ex));
+              logger.error("failed: " + Utils.ThrowableToString(ex));
             }
           }
         });
@@ -275,7 +278,7 @@ public class CrawlQueryPadView extends FrameView {
               //
               statusMessageLabel.setText("State is cleared");
             } catch (Exception ex) {
-              logger.error(Utils.ThrowableToString(ex));
+              logger.error("failed: " + Utils.ThrowableToString(ex));
             }
           }
         });
@@ -522,206 +525,30 @@ public class CrawlQueryPadView extends FrameView {
 
       String queryString = queryPane.getText();
       QueryParser parser = new QueryParser( new StringReader(queryString) );
-
       logger.debug("Compiling ...");
-      //命令リスト
-      List<Object[]> instructions = new ArrayList<Object[]>();
-      //エラーリスト
-      List<Throwable> throwables = new ArrayList<Throwable>();
+      CQCompileResult result;
+      List<Object[]> instructions;
+      List<Throwable> throwables;
       try {
         query = parser.parse();
-
         query.dump("");
-
-        //ノードのナンバリングのためのリスト
-        List<SimpleNode> nodes = new ArrayList<SimpleNode>();
-        nodes.add(null); //dummy
-
-        //initialize
-        List<Object[]> stack = new ArrayList<Object[]>();
-        stack.add( new Object[]{query, -1} );
-        int depth = 0;
-
-        for(;;) {
-          if ( depth == -1 ) {
-            break;
+        result = CQCompiler.compile(query);
+        instructions = result.getInstructions();
+        throwables   = result.getThrowables();
+        if (0 < throwables.size()) {
+          StringBuilder sb = new StringBuilder();
+          for (Throwable t: throwables) {
+            String error = Utils.ThrowableToString(t);
+            sb.append("[" + throwables.indexOf(t) + "/" + throwables.size() + "]\n");
+            sb.append(error);
           }
-          Object[] o = stack.get(depth);
-          SimpleNode node = (SimpleNode)o[0];
-          int cursor = (Integer)o[1];
-          cursor++;
-          o[1] = cursor;
-          if (cursor == 0) { //at first visit
-            //add node
-            nodes.add(node);
-            if (null != node.jjtGetValue()) { //if node has value
-              Object[] arr = (Object[])node.jjtGetValue();
-              Throwable throwable = (Throwable)arr[0];
-              if (null != throwable) {
-                //add throwable
-                throwables.add(throwable);
-              }
-            }
-          }
-          if ( node.jjtGetNumChildren() <= cursor ) {
-
-            //add operation
-            if ( node instanceof Condition ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CONDITION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Condition_AND ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CONDITION AND", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Condition_Match ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CONDITION MATCH", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Condition_OR ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CONDITION OR", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Condition_Unary_NOT ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CONDITION UNARY NOT", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Crawl ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Execute ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL EXECUTE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Filter ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL FILTER", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Operator_Difference ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL OP DIFFERENCE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Operator_Intersection ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL OP INTERSECTION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Operator_SymmetricDifference ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL OP SYMMETRIC DIFFERENCE", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Operator_Union ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL OP UNION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Crawl_Set_Condition ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "CRAWL SET CONDITION", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Depth_Value ) {
-              Object[] arr = (Object[])node.jjtGetValue();
-              String value = (String)arr[2];
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "DEPTH VALUE", nodes.indexOf(node.jjtGetParent()), value
-                } );
-
-            } else if ( node instanceof Field_BODY ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD BODY", nodes.indexOf(node.jjtGetParent()), "FIELD_BODY"
-                } );
-            } else if ( node instanceof Field_ID ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD ID", nodes.indexOf(node.jjtGetParent()), "FIELD_ID"
-                } );
-            } else if ( node instanceof Field_TEXT ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD TEXT", nodes.indexOf(node.jjtGetParent()), "FIELD_TEXT"
-                } );
-            } else if ( node instanceof Field_TITLE ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD TITLE", nodes.indexOf(node.jjtGetParent()), "FIELD_TITLE"
-                } );
-            } else if ( node instanceof Field_URL ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "FIELD URL", nodes.indexOf(node.jjtGetParent()), "FIELD_URL"
-                } );
-
-            } else if ( node instanceof Index_Order ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "INDEX ORDER", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Order_ASC ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "ORDER ASC", nodes.indexOf(node.jjtGetParent()), "ORDER_ASC"
-                } );
-            } else if ( node instanceof Order_DESC ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "ORDER DESC", nodes.indexOf(node.jjtGetParent()), "ORDER_DESC"
-                } );
-
-            } else if ( node instanceof Query ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "QUERY", 0, nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Query_Option_Index ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "QUERY OPTION INDEX", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Regex ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "REGEX", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-            } else if ( node instanceof Regex_Option_Value ) {
-              Object[] arr = (Object[])node.jjtGetValue();
-              String value = (String)arr[2];
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "REGEX OPTION VALUE", nodes.indexOf(node.jjtGetParent()), value
-                } );
-            }  else if ( node instanceof Regex_Pattern_Value ) {
-              Object[] arr = (Object[])node.jjtGetValue();
-              String value = (String)arr[2];
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "REGEX PATTERN VALUE", nodes.indexOf(node.jjtGetParent()), value
-                } );
-
-            } else if ( node instanceof Url_Value ) {
-              Object[] arr = (Object[])node.jjtGetValue();
-              String value = (String)arr[2];
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "URL", nodes.indexOf(node.jjtGetParent()), value
-                } );
-
-            } else if ( node instanceof Urls ) {
-              instructions.add( new Object[] {
-                  instructions.size() + 1, "URLS", nodes.indexOf(node.jjtGetParent()), nodes.indexOf(node)
-                } );
-
-            } else if ( node instanceof Chain /* ||
-                        node instanceof Left_Paren ||
-                        node instanceof Right_Paren */ ) {
-              //pass
-            } else {
-              throw new Exception("Unknown Class!");
-            }
-
-            stack.remove(depth);
-            depth--;
-          } else {
-            //depth-first
-            stack.add( new Object[]{ node.jjtGetChild(cursor), -1 } );
-            depth++;
-          }
+          logger.error("compiler returns " + throwables.size() + " throwables: " + sb.toString());
+          throw new Exception("compiler returns " + throwables.size() + " throwables: " + sb.toString());
         }
-
-      } catch (Throwable t) {
-        String error = Utils.ThrowableToString(t);
-        logger.error(error);
+      } catch(Exception e) {
+        String error = Utils.ThrowableToString(e);
         statusMessageLabel.setText("Query syntax error has occurred!");
+        logger.error("Query syntax error has occurred!; " + error);
         setStringToJTextArea(resultTextArea, error);
         return;
       }
@@ -746,7 +573,7 @@ public class CrawlQueryPadView extends FrameView {
            doCrawl
          ) {
         logger.debug("start crawling");
-        worker = new CrawlExcecuteWorker(queryString, instructions);
+        worker = new CrawlExcecuteWorker(queryString, result);
         worker.addPropertyChangeListener(new PropertyChangeListener());
         worker.execute();
       }
@@ -815,13 +642,15 @@ public class CrawlQueryPadView extends FrameView {
         invokeHighlightUpdate();
       }
     }
-    class CrawlExcecuteWorker extends SwingWorker<List<Object[]>, String> {
+    public class CrawlExcecuteWorker extends SwingWorker<List<Object[]>, String> {
       protected Logger logger = LoggerFactory.getLogger(CrawlExcecuteWorker.class);
       String queryString = null;
+      CQCompileResult compileResult = null;
       List<Object[]> instructions = null;
-      public CrawlExcecuteWorker(String queryString, List<Object[]> insts) {
+      public CrawlExcecuteWorker(String queryString, CQCompileResult result) {
         this.queryString  = queryString;
-        this.instructions = insts;
+        this.compileResult = result;
+        this.instructions  = result.getInstructions();
       }
       public String getQueryString() {
         return this.queryString;
@@ -834,21 +663,9 @@ public class CrawlQueryPadView extends FrameView {
         publish("initializing...");
         setProgress(0);
 
-        int maxPool = 0;
-        for (Object[] instruction : instructions) {
-          Integer to = (Integer)instruction[2];
-          if (maxPool < to) {
-            maxPool = to;
-          }
-        }
-        List<List> pool = new ArrayList<List>();
-        for (int i=0; i < maxPool + 2; i++) {
-          pool.add( new ArrayList() );
-        }
-
+        List<List> pool = compileResult.getPool();
         //Conds
         List<Cond> filters = new ArrayList<Cond>();
-
         //Sort
         List sorts = new ArrayList();
         //default sort
@@ -865,10 +682,10 @@ public class CrawlQueryPadView extends FrameView {
         LazyLoaderManager manager = new LazyLoaderManager(conn);
 
         for (Object[] instruction : instructions) {
-          Integer id   = (Integer)instruction[0];
-          String  inst = (String) instruction[1];
-          Integer to   = (Integer)instruction[2];
-          Object  from = instruction[3];
+          Integer id           = (Integer)         instruction[0];
+          CQCompiler.Inst inst = (CQCompiler.Inst) instruction[1];
+          Integer op1          = (Integer)         instruction[2];
+          Object  op2          =                   instruction[3];
 
           if (worker.isCancelled()) {
             logger.info("worker is cancelled.");
@@ -876,37 +693,39 @@ public class CrawlQueryPadView extends FrameView {
             throw new java.util.concurrent.CancellationException();
           }
 
-          publish( "(" + id + "/" + instructions.size() + ")" + " [" + inst + "] " + to + ", " + from );
+          publish( "(" + id + "/" + instructions.size() + ")" + " [" + inst + "] " + op1 + ", " + op2 );
           setProgress(100 * id / instructions.size());
 
           logger.debug("--DUMP--");
           logger.debug("id: " + id);
           logger.debug("inst: " + inst);
-          logger.debug("to: " + to);
-          if (from instanceof Integer) {
-            logger.debug("from: " + from);
-            List fArr = pool.get((Integer)from);
+          logger.debug("op1: " + op1);
+          if (op2 instanceof Integer) { //adress
+            logger.debug("op2: " + op2);
+            List fArr = pool.get((Integer)op2);
             for (Object o : fArr) {
               logger.debug(o.toString());
             }
+          } else if (op2 instanceof String) { //value
+            logger.debug("op2(value): '" + op2 + "'");
           } else {
-            logger.debug("from(value): " + from);
+            logger.debug("op2(null): -");
           }
           logger.debug("--------");
 
-          if ( inst.equals("CONDITION") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).add( new Cond((ICondition)fromArr.get(0)) );
+          if ( inst == CQCompiler.Inst.CONDITION ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).add( new Cond((ICondition)fromArr.get(0)) );
 
-          } else if ( inst.equals("CONDITION AND") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).add( new CondAND((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
+          } else if ( inst == CQCompiler.Inst.CONDITION_AND ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).add( new CondAND((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
 
-          } else if ( inst.equals("CONDITION MATCH") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.CONDITION_MATCH ) {
+            List fromArr = pool.get((Integer)op2);
             Fields.Field field = null;
-            String pattern = null;
-            String option = null;
+            String pattern     = null;
+            String option      = null;
             for (int i=0; i < fromArr.size(); i++) {
               Object o = fromArr.get(i);
               if (o instanceof Fields.Field) {
@@ -920,111 +739,111 @@ public class CrawlQueryPadView extends FrameView {
             if (null == field) {
               field = Fields.Field.URL; //apply default
             }
-            pool.get(to).add( new CondMatch(field, pattern, option) );
+            pool.get(op1).add( new CondMatch(field, pattern, option) );
 
-          } else if ( inst.equals("CONDITION OR") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).add( new CondOR((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
+          } else if ( inst == CQCompiler.Inst.CONDITION_OR ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).add( new CondOR((ICondition)fromArr.get(0), (ICondition)fromArr.get(1)) );
 
-          } else if ( inst.equals("CONDITION UNARY NOT") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).add( new CondNOT((ICondition)fromArr.get(0)) );
+          } else if ( inst == CQCompiler.Inst.CONDITION_UNARY_NOT ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).add( new CondNOT((ICondition)fromArr.get(0)) );
 
 
-          } else if ( inst.equals("CRAWL") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).add( fromArr.get(0) ); //copy one
+          } else if ( inst == CQCompiler.Inst.CRAWL ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).add( fromArr.get(0) ); //copy one
             //reset filters
             filters.clear();
 
-          } else if ( inst.equals("CRAWL EXECUTE") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_EXECUTE ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             int depth = (Integer)fromArr.get(0);
             LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
             set = set.getCrawled(depth, filters, this);
             toArr.clear();
             toArr.add(set);
 
-          } else if ( inst.equals("CRAWL FILTER") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_FILTER ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
             LogicalOperationSet newSet = set.getCondsFiltered(fromArr);
             toArr.clear();
             toArr.add(newSet);
 
-          } else if ( inst.equals("CRAWL OP DIFFERENCE") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_OP_DIFFERENCE ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
             LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
             toArr.add(set1.getDifference(set2));
 
-          } else if ( inst.equals("CRAWL OP INTERSECTION") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_OP_INTERSECTION ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
             LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
             toArr.add(set1.getIntersection(set2));
 
-          } else if ( inst.equals("CRAWL OP SYMMETRIC DIFFERENCE") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_OP_SYMMETRIC_DIFFERENCE ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
             LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
             toArr.add(set1.getSymmetricDifference(set2));
 
-          } else if ( inst.equals("CRAWL OP UNION") ) {
-            List fromArr = pool.get((Integer)from);
-            List toArr   = pool.get(to);
+          } else if ( inst == CQCompiler.Inst.CRAWL_OP_UNION ) {
+            List fromArr = pool.get((Integer)op2);
+            List toArr   = pool.get(op1);
             LogicalOperationSet set1 = (LogicalOperationSet)fromArr.get(0);
             LogicalOperationSet set2 = (LogicalOperationSet)fromArr.get(1);
             toArr.add(set1.getUnion(set2));
 
-          } else if ( inst.equals("CRAWL SET CONDITION") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.CRAWL_SET_CONDITION ) {
+            List fromArr = pool.get((Integer)op2);
             filters.add((Cond)fromArr.get(0));
 
 
-          } else if ( inst.equals("DEPTH VALUE") ) {
-            int depth = Integer.parseInt( (String)from );
-            pool.get(to).add( depth );
+          } else if ( inst == CQCompiler.Inst.DEPTH_VALUE ) {
+            int depth = Integer.parseInt( (String)op2 );
+            pool.get(op1).add( depth );
 
-          } else if ( inst.equals("FIELD BODY") ) {
-            pool.get(to).add( Fields.Field.BODY );
+          } else if ( inst == CQCompiler.Inst.FIELD_BODY ) {
+            pool.get(op1).add( Fields.Field.BODY );
 
-          } else if ( inst.equals("FIELD ID") ) {
-            pool.get(to).add( Fields.Field.ID );
+          } else if ( inst == CQCompiler.Inst.FIELD_ID ) {
+            pool.get(op1).add( Fields.Field.ID );
 
-          } else if ( inst.equals("FIELD TEXT") ) {
-            pool.get(to).add( Fields.Field.TEXT );
+          } else if ( inst == CQCompiler.Inst.FIELD_TEXT ) {
+            pool.get(op1).add( Fields.Field.TEXT );
 
-          } else if ( inst.equals("FIELD TITLE") ) {
-            pool.get(to).add( Fields.Field.TITLE );
+          } else if ( inst == CQCompiler.Inst.FIELD_TITLE ) {
+            pool.get(op1).add( Fields.Field.TITLE );
 
-          } else if ( inst.equals("FIELD URL") ) {
-            pool.get(to).add( Fields.Field.URL );
+          } else if ( inst == CQCompiler.Inst.FIELD_URL ) {
+            pool.get(op1).add( Fields.Field.URL );
 
 
-          } else if ( inst.equals("INDEX ORDER") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.INDEX_ORDER ) {
+            List fromArr = pool.get((Integer)op2);
             if (fromArr.size() == 1) {
               fromArr.add( 0, Fields.Field.URL ); //default
-              pool.get(to).add( fromArr );
+              pool.get(op1).add( fromArr );
             } else if (fromArr.size() == 2) {
-              pool.get(to).add( fromArr );
+              pool.get(op1).add( fromArr );
             }
 
-          } else if ( inst.equals("ORDER ASC") ) {
-            pool.get(to).add( Orders.Order.ASC );
+          } else if ( inst == CQCompiler.Inst.ORDER_ASC ) {
+            pool.get(op1).add( Orders.Order.ASC );
 
-          } else if ( inst.equals("ORDER DESC") ) {
-            pool.get(to).add( Orders.Order.DESC );
+          } else if ( inst == CQCompiler.Inst.ORDER_DESC ) {
+            pool.get(op1).add( Orders.Order.DESC );
 
 
-          } else if ( inst.equals("QUERY") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.QUERY ) {
+            List fromArr = pool.get((Integer)op2);
             if (0 == fromArr.size()) {
               pool.get(0).add( new HashSet() );
             } else {
@@ -1032,32 +851,30 @@ public class CrawlQueryPadView extends FrameView {
             }
 
 
-          } else if ( inst.equals("QUERY OPTION INDEX") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.QUERY_OPTION_INDEX ) {
+            List fromArr = pool.get((Integer)op2);
             sorts.addAll(fromArr);
 
 
-          } else if ( inst.equals("REGEX") ) {
-            List fromArr = pool.get((Integer)from);
-            pool.get(to).addAll( fromArr ); //copy all
+          } else if ( inst == CQCompiler.Inst.REGEX ) {
+            List fromArr = pool.get((Integer)op2);
+            pool.get(op1).addAll( fromArr ); //copy all
 
-          } else if ( inst.equals("REGEX OPTION VALUE") ) {
-            String s = (String)from;
-            pool.get(to).add( s );
+          } else if ( inst == CQCompiler.Inst.REGEX_OPTION_VALUE ) {
+            String s = (String)op2;
+            pool.get(op1).add( s );
 
-          } else if ( inst.equals("REGEX PATTERN VALUE") ) {
-            String s = (String)from;
-            s = s.substring(1, s.length() - 1);
-            pool.get(to).add( s );
+          } else if ( inst == CQCompiler.Inst.REGEX_PATTERN_VALUE ) {
+            String s = (String)op2;
+            pool.get(op1).add( s );
 
 
-          } else if ( inst.equals("URL") ) {
-            String s = (String)from;
-            s = s.substring(1, s.length() - 1);
-            pool.get(to).add( s );
+          } else if ( inst == CQCompiler.Inst.URL ) {
+            String s = (String)op2;
+            pool.get(op1).add( s );
 
-          } else if ( inst.equals("URLS") ) {
-            List fromArr = pool.get((Integer)from);
+          } else if ( inst == CQCompiler.Inst.URLS ) {
+            List fromArr = pool.get((Integer)op2);
             LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
             for (Object o : fromArr) {
               String url = (String)DomUtils.getSplitedByAnchor((String)o)[0];
@@ -1072,11 +889,8 @@ public class CrawlQueryPadView extends FrameView {
             //condによるフィルタリングは行わない・行えない
             urls = urls.getResponseCodeFiltered();
             urls = urls.getContentTypeFiltered();
-            pool.get(to).add( urls );
+            pool.get(op1).add( urls );
 
-
-          } else {
-            throw new Exception("Unknown Class!");
           }
         }
         conn.commit();
@@ -1139,6 +953,7 @@ public class CrawlQueryPadView extends FrameView {
           Map map = new HashMap();
           map.put("resultArr", resultArr);
           map.put("queryString", worker.getQueryString());
+          map.put("worker", this);
           pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
           pyi.set("____DATA____",  map);
           Object ret = pyi.eval(pluginPath + ".call(____API____, ____DATA____)");

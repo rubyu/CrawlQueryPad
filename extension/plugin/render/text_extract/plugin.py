@@ -25,11 +25,14 @@ def call(API, data):
     Main function of the extension.
     This function must be returns (String title, File text).
     """
-    resultArr = data.get("resultArr")
+    queryString = data.get("queryString")
+    resultArr   = data.get("resultArr")
+    worker      = data.get("worker")
     file = TempFileManager.createTempFile("email_extract", ".txt")
     f = open(file.getPath(), "w")
     title = ""
     for i, loader in enumerate(resultArr):
+        worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
         if 0 == i:
             title = loader.getTitle()
         text = loader.getText()

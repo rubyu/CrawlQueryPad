@@ -128,7 +128,11 @@
 
       <!-- copy -->
       <copydir src="${basedir}/extension" dest="${dist.dir}/extention" />
-
+      
+      <!--detele Lib
+      <delete dir="${dist.dir}/extention/Lib" />
+      -->
+      
       <!-- move dist contents to publish directory -->
       <move todir="${dist.dir}/cqpad">
         <fileset dir="${dist.dir}">
