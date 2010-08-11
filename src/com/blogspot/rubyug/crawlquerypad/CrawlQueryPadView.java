@@ -145,58 +145,67 @@ public class CrawlQueryPadView extends FrameView {
         app.exit();
       }
 
-      
       //exts
       extensions_of_save   = new ArrayList<String>();
       extensions_of_render = new ArrayList<String>();
-      File extensionDir = new File( getCurrent() + "/ext" );
+      File extensionDir = new File( getCurrent() + "/extension" );
       if (extensionDir.exists()) {
         PythonInterpreter pyi = new PythonInterpreter();
         pyi.exec("import sys");
-        pyi.exec("sys.path.append('" + getCurrent() + "')");
-        File pluginDir = new File(extensionDir.getAbsolutePath() + "/save");
+        File extensionLibDir = new File(extensionDir.getAbsolutePath() + "/Lib");
+        if (extensionLibDir.exists()) {
+          logger.info("sys.path.append('" + extensionLibDir.getAbsolutePath() + "')");
+          pyi.exec("sys.path.append('" + extensionLibDir.getAbsolutePath() + "')");
+        }
+        File extensionPluginDir = new File(extensionDir.getAbsolutePath() + "/plugin");
+        if (extensionPluginDir.exists()) {
+          logger.info("sys.path.append('" + extensionPluginDir.getAbsolutePath() + "')");
+          pyi.exec("sys.path.append('" + extensionPluginDir.getAbsolutePath() + "')");
+        }
+
+        File pluginDir = new File(extensionPluginDir.getAbsolutePath() + "/save");
         if (pluginDir.exists() && pluginDir.isDirectory()) {
           for (File plugin: pluginDir.listFiles()) {
             if (!plugin.exists() ||
                 !plugin.isDirectory()) {
                 continue;
             }
+            logger.info("try to register a save plugin: " + plugin.getAbsolutePath());
             try {
-              String pluginPath = "ext." + pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              String pluginPath = pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              logger.debug("path: " + pluginPath);
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
-              logger.info("name: " + name);
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("description: " + desc);
-              logger.info("OK");
+              logger.info("plugin registered; name: " + name + " description:" + desc);
               extensions_of_save.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)saveComboBox.getModel();
               model.addElement(name + ": " + desc);
             } catch(Exception e) {
-              logger.info("NG:" + Utils.ThrowableToString(e));
+              logger.info("plugin not registered: " + Utils.ThrowableToString(e));
             }
           }
         }
-        pluginDir = new File(extensionDir.getAbsolutePath() + "/render");
+        pluginDir = new File(extensionPluginDir.getAbsolutePath() + "/render");
         if (pluginDir.exists() && pluginDir.isDirectory()) {
           for (File plugin: pluginDir.listFiles()) {
             if (!plugin.exists() ||
                 !plugin.isDirectory()) {
                 continue;
             }
+            logger.info("try to register a render plugin: " + plugin.getAbsolutePath());
             try {
-              String pluginPath = "ext." + pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              String pluginPath = pluginDir.getName() + "." + plugin.getName() + ".plugin";
+              logger.debug("path: " + pluginPath);
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
-              logger.info("name: " + name);
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("description: " + desc);
-              logger.info("OK");
+              logger.info("plugin registered; name: " + name + " description:" + desc);
               extensions_of_render.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)renderComboBox.getModel();
               model.addElement(name + ": " + desc);
             } catch(Exception e) {
-              logger.info("NG:" + Utils.ThrowableToString(e));
+              logger.info("plugin not registered: " + Utils.ThrowableToString(e));
             }
           }
         }
