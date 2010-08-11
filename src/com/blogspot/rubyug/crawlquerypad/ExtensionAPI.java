@@ -20,7 +20,7 @@ public class ExtensionAPI {
     ResultSet rs = null;
     try {
       //get schema
-      conn = CrawlQueryPadView.connectionPool.getConnection();
+      conn = DB.getConnection();
       prep = conn.prepareStatement("SELECT * FROM api_state WHERE key=?");
       prep.setString(1, name);
       rs = prep.executeQuery();
@@ -48,7 +48,7 @@ public class ExtensionAPI {
     PreparedStatement prep = null;
     StringReader sr = null;
     try {
-      conn = CrawlQueryPadView.connectionPool.getConnection();
+      conn = DB.getConnection();
       prep = conn.prepareStatement("MERGE INTO api_state(key, state) VALUES(?, ?)");
       prep.setString(1, name);
       sr = new StringReader(state.toXML());
