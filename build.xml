@@ -127,10 +127,10 @@
 
 
       <!-- copy -->
-      <copydir src="${basedir}/extension" dest="${dist.dir}/extention" />
+      <copydir src="${basedir}/extension" dest="${dist.dir}/extension" />
       
       <!--detele Lib
-      <delete dir="${dist.dir}/extention/Lib" />
+      <delete dir="${dist.dir}/extension/Lib" />
       -->
       
       <!-- move dist contents to publish directory -->

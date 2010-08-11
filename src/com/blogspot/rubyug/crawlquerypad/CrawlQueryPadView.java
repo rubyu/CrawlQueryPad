@@ -50,20 +50,27 @@ public class CrawlQueryPadView extends FrameView {
       try {
         top = URLDecoder.decode(top, "utf-8");
       } catch(Exception e){}
-
+      logger.trace("top: " + top);
       if(top.startsWith("file:/")){
         top = top.substring(5, top.toLowerCase().indexOf(".jar!/") + 4);
+        logger.trace(" -> " + top);
         if(top.matches("^/[A-Z]:/.*")){
           top = top.substring(1);
+          logger.trace(" -> " + top);
         }
         top = top.substring(0, top.lastIndexOf("/"));
+        logger.trace(" -> " + top);
         if(top.matches("^[A-Z]:")){
           top += "/";
+          logger.trace(" -> " + top);
         }
         top = top.replace("\\", "/");
+        logger.trace(" -> " + top);
       }else{
         top = ".";
+        logger.trace(" -> " + top);
       }
+      logger.debug("getCurrent(): " + top);
       return top;
     }
     public CrawlQueryPadView(SingleFrameApplication app) {
@@ -115,6 +122,7 @@ public class CrawlQueryPadView extends FrameView {
           }
       });
 
+      logger.info("database initialize");
       /*
       State args = ((CrawlQueryPadApp)app).getArgState();
       String profileName = args.getFirstOr("profileName", null); //綺麗じゃない
@@ -149,6 +157,7 @@ public class CrawlQueryPadView extends FrameView {
       }
 
       //exts
+      logger.info("extension initialize");
       extensions_of_save   = new ArrayList<String>();
       extensions_of_render = new ArrayList<String>();
       File extensionDir = new File( getCurrent() + "/extension" );
@@ -338,6 +347,28 @@ public class CrawlQueryPadView extends FrameView {
             LazyLoader.setMaxRetry(maxRetry);
           }
         });
+
+
+      StringBuilder sb = new StringBuilder();
+      int c;
+      try {
+        int a = System.in.available();
+        if (a <= 0) {
+          logger.info("no standard input");
+        } else {
+          InputStreamReader isr = new InputStreamReader(System.in);
+          for (int i = 0; i < a; i++) {
+            c = System.in.read();
+            sb.append((char)c);
+          }
+        }
+      } catch(Exception e) {}
+      if (0 < sb.length()) {
+        logger.info("standard input: " + sb.toString());
+        setStringToJTextPane(queryPane, sb.toString());
+        invokeQueryParse(true);
+      }
+
     }
 
     void insertStringToJTextPane(JTextPane pane, String text) {
