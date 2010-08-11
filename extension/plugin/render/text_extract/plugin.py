@@ -32,6 +32,8 @@ def call(API, data):
     f = open(file.getPath(), "w")
     title = ""
     for i, loader in enumerate(resultArr):
+        if worker.isCancelled():
+            break
         worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
         if 0 == i:
             title = loader.getTitle()

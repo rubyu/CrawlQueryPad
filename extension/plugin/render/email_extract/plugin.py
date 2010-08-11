@@ -31,6 +31,8 @@ def call(API, data):
     file = TempFileManager.createTempFile("email_extract", ".txt")
     mailSet = set([])
     for i, loader in enumerate(resultArr):
+        if worker.isCancelled():
+            break
         worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
         try:
             ins    = loader.getContent()
