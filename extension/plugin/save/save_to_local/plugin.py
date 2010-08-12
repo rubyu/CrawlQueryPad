@@ -28,27 +28,6 @@ def _show_directory_dialog():
       return file.getAbsolutePath()
 
 def escape_filename(str):
-    #delete if reserved name
-    if str == "AUX" or \
-       str == "CLOCK$" or \
-       str == "COM1" or str == "COM2" or \
-       str == "COM3" or str == "COM4" or \
-       str == "COM5" or str == "COM6" or \
-       str == "COM7" or str == "COM8" or \
-       str == "COM9" or \
-       str == "CON" or \
-       str == "CONFIG$" or \
-       str == "LPT1" or str == "LPT2" or \
-       str == "LPT3" or str == "LPT4" or \
-       str == "LPT5" or str == "LPT6" or \
-       str == "LPT7" or str == "LPT8" or \
-       str == "LPT9" or \
-       str == "NUL" or \
-       str == "PRN":
-        str == ""
-    #delete if .. or .
-    if str == "." or str == "..":
-        str = ""
     #remove last period or blank 
     buf = []
     stop = False
@@ -80,6 +59,27 @@ def escape_filename(str):
     str = str.replace("<", u"＜")
     str = str.replace(">", u"＞")
     str = str.replace("|", u"｜")
+    #delete if reserved name
+    if str == "AUX" or \
+       str == "CLOCK$" or \
+       str == "COM1" or str == "COM2" or \
+       str == "COM3" or str == "COM4" or \
+       str == "COM5" or str == "COM6" or \
+       str == "COM7" or str == "COM8" or \
+       str == "COM9" or \
+       str == "CON" or \
+       str == "CONFIG$" or \
+       str == "LPT1" or str == "LPT2" or \
+       str == "LPT3" or str == "LPT4" or \
+       str == "LPT5" or str == "LPT6" or \
+       str == "LPT7" or str == "LPT8" or \
+       str == "LPT9" or \
+       str == "NUL" or \
+       str == "PRN":
+        str == ""
+    #delete if .. or .
+    if str == "." or str == "..":
+        str = ""
     #if empty
     if str == "":
         str = "(empty)"
