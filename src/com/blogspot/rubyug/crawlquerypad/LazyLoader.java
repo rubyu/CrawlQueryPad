@@ -135,7 +135,7 @@ public class LazyLoader {
         } catch (Exception e) {}
       }
     }
-    return null;
+    return new State(); //not return null
   }
   public InputStream getContent() {
     logger.debug("getContent: " + getFullUrl());

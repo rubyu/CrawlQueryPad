@@ -60,20 +60,26 @@ public class LogicalOperationSet extends HashSet<Integer> {
         try {
           in           = loader.getContent();
           State header = loader.getHeader();
-          String charset = DomUtils.guessCharset(header, in);
-          try {
-            in.close();
-          } catch (Exception e) {}
+          if (null != in) {
+            String charset = DomUtils.guessCharset(header, in);
+            try {
+              in.close();
+            } catch (Exception e) {}
 
-          in = loader.getContent();
-          List<String> externalNotFound = DomUtils.extractHtmlLinks(loader.getUrl(), in, charset);
-          for (String url : externalNotFound) { //isValidURLs
-            int newId = manager.register(url);
-            if (!newSet.contains(newId)) { //新しいもののみ
-              logger.debug("extracted: " + url);
-              tempSet.add(newId);
+            in = loader.getContent();
+            List<String> externalNotFound = DomUtils.extractHtmlLinks(loader.getUrl(), in, charset);
+            for (String url : externalNotFound) { //isValidURLs
+              int newId = manager.register(url);
+              if (!newSet.contains(newId)) { //新しいもののみ
+                logger.debug("extracted: " + url);
+                tempSet.add(newId);
+              }
             }
+          } else {
+            logger.debug("in is null");
           }
+        } catch(Exception e) {
+          logger.error(Utils.ThrowableToString(e));
         } finally {
           if (null != in) {
             try {
