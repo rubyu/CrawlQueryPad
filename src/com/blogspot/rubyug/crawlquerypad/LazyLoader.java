@@ -72,9 +72,8 @@ public class LazyLoader {
       if (null != ret) {
         return new State(ret);
       }
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error(Utils.ThrowableToString(e));
-    } catch (UnsupportedEncodingException e) {
     } finally {
       if (null != rs) {
         try {
@@ -82,7 +81,7 @@ public class LazyLoader {
         } catch (Exception e) {}
       }
     }
-    return null;
+    return new State();
   }
   public State getHeader() {
     logger.debug("getHeader: " + getFullUrl());
@@ -196,16 +195,12 @@ public class LazyLoader {
     }
     return null;
   }
-  private String guessCharset() {
+  public String guessCharset() {
     InputStream in = null;
     try {
-      in = getContent();
+      in           = getContent();
       State header = getHeader();
-      if (in != null &&
-          header != null) {
-        return DomUtils.guessCharset(header, in);
-      }
-      return null;
+      return DomUtils.guessCharset(header, in);
     } finally {
       if (in != null) {
         try {
@@ -256,7 +251,7 @@ public class LazyLoader {
         setTitle(getUrl(), title);
         return title;
       }
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error(Utils.ThrowableToString(e));
     } finally {
       if (in != null) {
@@ -289,7 +284,7 @@ public class LazyLoader {
         setText(getUrl(), text);
         return text;
       }
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error(Utils.ThrowableToString(e));
     } finally {
       if (in != null) {

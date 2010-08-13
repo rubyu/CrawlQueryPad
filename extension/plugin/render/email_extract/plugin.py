@@ -19,7 +19,6 @@ def ext_description():
     """
     return "Extract links that has mail/tel/sms/mms schemes."
 
-      
 def call(API, data):
     """
     Main function of the extension.
@@ -29,24 +28,20 @@ def call(API, data):
     resultArr   = data.get("resultArr")
     worker      = data.get("worker")
     file = TempFileManager.createTempFile("email_extract", ".txt")
+    
     mailSet = set([])
     for i, loader in enumerate(resultArr):
         if worker.isCancelled():
             return "CANCELLED"
-        worker.publish("Rendering... %d/%d" % (i, len(resultArr)))
+        worker.publish("Rendering... %d/%d" % (i + 1, len(resultArr)))
         try:
-            ins    = loader.getContent()
-            header = loader.getHeader()
-            charset = DomUtils.guessCharset(header, ins)
-            try:
-                ins.close()
-            except:
-                pass
-            ins = loader.getContent()
-            
+            ins     = loader.getContent()
+            charset = loader.guessCharset()
             for mail in DomUtils.extractMails(loader.getUrl(), ins, charset):
                 if not mail in mailSet:
                     mailSet.add(mail)
+        except:
+            print "error occurred inside a render plugin! (%d/%d) url: %s" % (i + 1, len(resultArr), loader.getUrl())
         finally:
             try:
                 ins.close()
