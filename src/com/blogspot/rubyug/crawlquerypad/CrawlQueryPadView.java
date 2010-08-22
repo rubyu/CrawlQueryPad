@@ -15,7 +15,6 @@ import org.jdesktop.application.Action;
 import org.jdesktop.application.ResourceMap;
 import org.jdesktop.application.SingleFrameApplication;
 import org.jdesktop.application.FrameView;
-import org.jdesktop.application.TaskMonitor;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -31,7 +30,6 @@ import java.awt.event.WindowEvent;
 import javax.swing.undo.*;
 import javax.swing.table.DefaultTableModel;
 
-import org.h2.jdbcx.JdbcConnectionPool;
 import java.sql.*;
 import java.net.*;
 
@@ -988,7 +986,8 @@ public class CrawlQueryPadView extends FrameView {
         conn.commit();
         logger.debug("cache comitted");
 
-        logger.debug("Creating result");
+        publish("Creating result ...");
+        logger.debug("Creating result ...");
         Set<LazyLoader> result = new HashSet<LazyLoader>();
         Object rootObj = pool.get(0).get(0);
         if (rootObj instanceof LogicalOperationSet) {
@@ -1006,8 +1005,8 @@ public class CrawlQueryPadView extends FrameView {
 
         LazyLoader[] resultArr = result.toArray(new LazyLoader[]{});
         //sort
-        publish("Sorting...");
-        logger.debug("Sorting...");
+        publish("Sorting ...");
+        logger.debug("Sorting ...");
         for (Object o: sorts) {
           if (worker.isCancelled()) {
             logger.info("worker is cancelled");

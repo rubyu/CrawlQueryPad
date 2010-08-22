@@ -488,21 +488,25 @@ public class DomUtils {
               tagAtts.put(a.getKey(), a.getValue());
             }
           }
-
+          String link = null;
           if (tagName.equals("a") ||
-              tagName.equals("area")) { //external
-            String link = tagAtts.get("href");
-            if (link != null && !hasDenyScheme(link)) {
-              link = getResolved(baseUrl, link);
-              Object[] ret = getSplitedByAnchor(link);
-              link = (String)ret[0];
-              if (isValidURL(link)) {
-                if (externalSet.contains(link)) {
-                  externalSet.add(link);
-                } else {
-                  externalList.add(link);
-                }
-              }
+              tagName.equals("area")) {
+            //external
+            link = tagAtts.get("href");
+          } else if (tagName.equals("frame")) {
+            //internal... but treat it as a link, to enhance the performance
+            link = tagAtts.get("src");
+          }
+          if (link == null || hasDenyScheme(link)) {
+            continue;
+          }
+          link = getResolved(baseUrl, link);
+          Object[] ret = getSplitedByAnchor(link);
+          link = (String)ret[0];
+          if (isValidURL(link)) {
+            if (!externalSet.contains(link)) {
+              externalSet.add(link);
+              externalList.add(link);
             }
           }
         }
