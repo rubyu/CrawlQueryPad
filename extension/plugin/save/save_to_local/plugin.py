@@ -17,7 +17,7 @@ def ext_description():
     """
     Returns this extension's summary.
     """
-    return "Save data to a local file."
+    return "Saves data to a local file."
 
 def _show_directory_dialog():
     filechooser = JFileChooser("")

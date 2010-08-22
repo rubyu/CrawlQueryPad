@@ -16,7 +16,7 @@ def ext_description():
     """
     Returns this extension's summary.
     """
-    return "Extract links that has mail/tel/sms/mms schemes."
+    return "Extracts links that has mail/tel/sms/mms schemes."
 
 def call(API):
     """

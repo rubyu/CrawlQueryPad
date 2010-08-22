@@ -14,7 +14,7 @@ def ext_description():
     """
     Returns this extension's summary.
     """
-    return "Extract texts and escapes reserved characters of aozora bunko."
+    return "Extracts text that all special characters in aozora-bunko escaped."
 
 def call(API):
     """
