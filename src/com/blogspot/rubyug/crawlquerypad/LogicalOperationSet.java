@@ -14,10 +14,12 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
   Connection conn = null;
   LazyLoaderManager manager = null;
-  public LogicalOperationSet(Connection conn, LazyLoaderManager manager) {
+  CrawlQueryPadView.CrawlExcecuteWorker worker = null;
+  public LogicalOperationSet(Connection conn, LazyLoaderManager manager, CrawlQueryPadView.CrawlExcecuteWorker worker) {
     super();
     this.conn = conn;
     this.manager = manager;
+    this.worker = worker;
   }
   public Connection getConnection() {
     return this.conn;
@@ -25,14 +27,17 @@ public class LogicalOperationSet extends HashSet<Integer> {
   public LazyLoaderManager getManager() {
     return this.manager;
   }
-  public LogicalOperationSet getCrawled(int depth, List<Cond> conds, CrawlQueryPadView.CrawlExcecuteWorker worker) {
+  public CrawlQueryPadView.CrawlExcecuteWorker getWorker() {
+    return this.worker;
+  }
+  public LogicalOperationSet getCrawled(int depth, List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet     = this;
     LogicalOperationSet currentSet = this;
     LogicalOperationSet tempSet    = null;
     
     for (int i=0; i < depth; i++) {
-      tempSet = new LogicalOperationSet(getConnection(), getManager());
+      tempSet = new LogicalOperationSet(conn, manager, worker);
 
       int current_i = 0;
       int current_size = currentSet.size();
@@ -97,10 +102,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
       logger.debug("size: " + tempSet.size());
 
       /*
-       * 以下のフィルタの順序は、Locationを持つような、ブラウザからは
-       * 意識されないURLを経由できるようにした方がいいのではないかという点で
-       * 考慮の余地がある。
-       * 現在は、処理速度のため、
+       * 以下でのフィルタは、Locationでの連続した遷移過程のURLを対象としない。
+       * 処理速度のため、全てのアイテムにgetContent()を行うような処理もしない。
+       * （frame src であれば自身との置換、が正しいが、外部リンク扱いしている）
+       * 
+       * 以下では
        * ・条件でのフィルタ
        * ・レスポンスコードでのフィルタ
        * ・Content-Typeでのフィルタ
@@ -108,42 +114,43 @@ public class LogicalOperationSet extends HashSet<Integer> {
        * を行っている。
        * Setの同一判定を行えば最後の処理は軽減できる。
        */
-      worker.publish(
-        "Crawling " +
-          "Depth " + (i+1) + "/" + depth + " " +
-          "Filtering by Condition(1)  1/4"
-        );
+      
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size: " + tempSet.size());
 
-      worker.publish(
-        "Crawling " +
-          "Depth " + (i+1) + "/" + depth + " " +
-          "Filtering by ResponseCode  2/4"
-        );
+      if (worker.isCancelled()) {
+        logger.debug("worker is Cancelled");
+        break;
+      }
+
       logger.debug("ResponseCode Filter");
       tempSet = tempSet.getResponseCodeFiltered();
       logger.debug("size: " + tempSet.size());
 
-      worker.publish(
-        "Crawling " +
-          "Depth " + (i+1) + "/" + depth + " " +
-          "Filtering by ContentType  3/4"
-        );
+      if (worker.isCancelled()) {
+        logger.debug("worker is Cancelled");
+        break;
+      }
+
       logger.debug("ContentType Filter");
       tempSet = tempSet.getContentTypeFiltered();
       logger.debug("size: " + tempSet.size());
 
-      worker.publish(
-        "Crawling " +
-          "Depth " + (i+1) + "/" + depth + " " +
-          "Filtering by condition(2)  4/4"
-        );
+      if (worker.isCancelled()) {
+        logger.debug("worker is Cancelled");
+        break;
+      }
+
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size: " + tempSet.size());
 
+      if (worker.isCancelled()) {
+        logger.debug("worker is Cancelled");
+        break;
+      }
+      
       currentSet = tempSet;
       newSet = newSet.getUnion(tempSet);
     }
@@ -151,9 +158,17 @@ public class LogicalOperationSet extends HashSet<Integer> {
   }
   public LogicalOperationSet getResponseCodeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
     boolean hasRedirect = false;
+    int i = 0;
     for (Integer id : this) {
+      if (worker.isCancelled()) {
+        break;
+      }
+      i++;
+      worker.publish(
+        "Filtering by ResponseCode " + i + "/" + this.size()
+        );
       LazyLoader loader = manager.getLazyLoader(conn, id);
       logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
@@ -189,8 +204,16 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
   public LogicalOperationSet getContentTypeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    int i = 0;
     for (Integer id : this) {
+      if (worker.isCancelled()) {
+        break;
+      }
+      i++;
+      worker.publish(
+        "Filtering by ContentType " + i + "/" + this.size()
+        );
       LazyLoader loader = manager.getLazyLoader(conn, id);
       logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
@@ -209,8 +232,16 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
   public LogicalOperationSet getCondsFiltered(List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    int i = 0;
     for (Integer id : this) {
+      if (worker.isCancelled()) {
+        break;
+      }
+      i++;
+      worker.publish(
+        "Filtering by Condition " + i + "/" + this.size()
+        );
       LazyLoader loader = manager.getLazyLoader(conn, id);
       logger.debug("checking: " + loader.getUrl());
       boolean match = true;
@@ -234,7 +265,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
   }
   
   public LogicalOperationSet getDifference(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
     for (Integer id : this) {
       newSet.add(id);
     }
@@ -244,7 +275,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getIntersection(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
     for (Integer id: loSet) {
       if (this.contains(id)) {
         newSet.add(id);
@@ -253,7 +284,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getSymmetricDifference(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
     for (Integer id : this) {
       if (!loSet.contains(id)) {
         newSet.add(id);
@@ -267,7 +298,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getUnion(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(getConnection(), getManager());
+    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
     for (Integer id : this) {
       newSet.add(id);
     }

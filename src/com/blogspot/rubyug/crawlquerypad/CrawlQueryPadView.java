@@ -851,7 +851,7 @@ public class CrawlQueryPadView extends FrameView {
             List toArr   = pool.get(op1);
             int depth = (Integer)fromArr.get(0);
             LogicalOperationSet set = (LogicalOperationSet)toArr.get(0);
-            set = set.getCrawled(depth, filters, this);
+            set = set.getCrawled(depth, filters);
             toArr.clear();
             toArr.add(set);
 
@@ -965,7 +965,7 @@ public class CrawlQueryPadView extends FrameView {
 
           } else if ( inst == CQCompiler.Inst.URLS ) {
             List fromArr = pool.get((Integer)op2);
-            LogicalOperationSet urls = new LogicalOperationSet(conn, manager);
+            LogicalOperationSet urls = new LogicalOperationSet(conn, manager, this);
             for (Object o : fromArr) {
               String url = (String)DomUtils.getSplitedByAnchor((String)o)[0];
               if (!DomUtils.isValidURL(url)) {
@@ -1443,7 +1443,7 @@ public class CrawlQueryPadView extends FrameView {
     jLabel1.setText(resourceMap.getString("jLabel1.text")); // NOI18N
     jLabel1.setName("jLabel1"); // NOI18N
 
-    downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(0, 0, 360, 1));
+    downloadWaitSpinner.setModel(new javax.swing.SpinnerNumberModel(2, 0, 360, 1));
     downloadWaitSpinner.setName("downloadWaitSpinner"); // NOI18N
 
     jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
