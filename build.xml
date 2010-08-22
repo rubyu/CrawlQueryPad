@@ -128,15 +128,16 @@
 
       <!-- copy -->
       <copydir src="${basedir}/extension" dest="${dist.dir}/extension" />
-      
-      <!--detele Lib
-      <delete dir="${dist.dir}/extension/Lib" />
-      -->
+
+      <!-- readme  -->
+      <delete file="${dist.dir}/README.TXT" />
+      <copy todir="${dist.dir}">
+        <fileset dir="${basedir}/readme" />
+      </copy>
       
       <!-- move dist contents to publish directory -->
       <move todir="${dist.dir}/cqpad">
-        <fileset dir="${dist.dir}">
-        </fileset>
+        <fileset dir="${dist.dir}" />
       </move>
 
       <!-- archive directory -->
