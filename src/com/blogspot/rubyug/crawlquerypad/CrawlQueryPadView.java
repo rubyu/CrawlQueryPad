@@ -164,7 +164,7 @@ public class CrawlQueryPadView extends FrameView {
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("plugin registered; name: " + name + " description: " + desc);
+              logger.info("plugin is registered; name: " + name + " description: " + desc);
               extensions_of_save.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)saveComboBox.getModel();
               model.addElement(name + ": " + desc);
@@ -188,7 +188,7 @@ public class CrawlQueryPadView extends FrameView {
               pyi.exec("import " + pluginPath);
               PyObject name = pyi.eval(pluginPath + ".ext_name()");
               PyObject desc = pyi.eval(pluginPath + ".ext_description()");
-              logger.info("plugin registered; name: " + name + " description: " + desc);
+              logger.info("plugin is registered; name: " + name + " description: " + desc);
               extensions_of_render.add(pluginPath);
               DefaultComboBoxModel model = (DefaultComboBoxModel)renderComboBox.getModel();
               model.addElement(name + ": " + desc);
@@ -221,9 +221,9 @@ public class CrawlQueryPadView extends FrameView {
               String result = pyi.eval(pluginPath + ".call(____API____)").toString();
               logger.info("result: " + result);
               //
-              statusMessageLabel.setText("save plugin(" + ext_name + ") returns: " + result);
+              statusMessageLabel.setText("save plugin(" + ext_name + ") returned: " + result);
             } catch (Exception ex) {
-              //textareaに書き出さないほうがいい？
+              //textareaに書き出さないほうがいい
               statusMessageLabel.setText("PluginError: error occurred when saving");
               logger.error("PluginError: error occurred when saving: " + Utils.ThrowableToString(ex));
             }
@@ -245,7 +245,7 @@ public class CrawlQueryPadView extends FrameView {
               //
               statusMessageLabel.setText("State is cleared");
             } catch (Exception ex) {
-              logger.error("failed: " + Utils.ThrowableToString(ex));
+              logger.error("PluginError: error occurred when clearing a save plugin state: " + Utils.ThrowableToString(ex));
             }
           }
         });
@@ -265,7 +265,7 @@ public class CrawlQueryPadView extends FrameView {
               //
               statusMessageLabel.setText("State is cleared");
             } catch (Exception ex) {
-              logger.error("failed: " + Utils.ThrowableToString(ex));
+              logger.error("PluginError: error occurred when clearing a render plugin state: " + Utils.ThrowableToString(ex));
             }
           }
         });
@@ -418,11 +418,9 @@ public class CrawlQueryPadView extends FrameView {
             logger.error("error occurred when save states: " + Utils.ThrowableToString(e));
           }
 
-          
         }
       });
 
-      
     }
 
     void insertStringToJTextPane(JTextPane pane, String text) {
@@ -627,8 +625,8 @@ public class CrawlQueryPadView extends FrameView {
             sb.append("[" + throwables.indexOf(t) + "/" + throwables.size() + "]\n");
             sb.append(error);
           }
-          logger.error("compiler returns " + throwables.size() + " throwables: " + sb.toString());
-          throw new Exception("compiler returns " + throwables.size() + " throwables: " + sb.toString());
+          logger.error("compiler returned " + throwables.size() + " throwables: " + sb.toString());
+          throw new Exception("compiler returned " + throwables.size() + " throwables: " + sb.toString());
         }
       } catch(Exception e) {
         String error = Utils.ThrowableToString(e);
@@ -764,9 +762,11 @@ public class CrawlQueryPadView extends FrameView {
         defaultSort.add( Orders.Order.ASC );
         sorts.add( 0, defaultSort );
 
-        if (null == conn) {
-          logger.warn("Missing connection. Retry to get connection.");
+        if (null == conn || conn.isClosed()) {
+          logger.warn("Missing connection!");
+          logger.info("tring to get a new connection ...");
           conn = DB.getConnection();
+          logger.info("success");
         }
 
         LazyLoaderManager manager = new LazyLoaderManager(conn);
@@ -984,7 +984,7 @@ public class CrawlQueryPadView extends FrameView {
           }
         }
         conn.commit();
-        logger.debug("cache comitted");
+        logger.debug("cache is committed");
 
         publish("Creating result ...");
         logger.debug("Creating result ...");
@@ -1068,18 +1068,23 @@ public class CrawlQueryPadView extends FrameView {
               throw new Exception("invalid result");
             }
           } else {
-            if (ret instanceof PyString &&
-                ret.toString().equals("CANCELLED")) {
-              //exceptionがマトモに取れないので、plugin内でキャンセルを検出したら文字列を返す
-              logger.info("worker is cancelled");
-              publish("Cancelled");
-              worker.cancel(true);
-              throw new java.util.concurrent.CancellationException();
+            if (ret instanceof PyString) {
+              String message = ret.toString();
+              logger.debug("Plugin returned a message: " + message);
+              if (message.equals("CANCELLED")) {
+                //exceptionがマトモに取れないので、plugin内でキャンセルを検出したら文字列を返す
+                logger.info("worker is cancelled");
+                publish("Cancelled");
+                worker.cancel(true); //プラグインがisCancelled()を検出せず、このメッセージを返したときのため
+                throw new java.util.concurrent.CancellationException();
+              } else {
+                logger.debug("Unknown message!");
+              }
             } else {
-              throw new Exception("Plugin not returns PyTuple Object");
+              throw new Exception("Plugin not returned PyTuple Object");
             }
           }
-          logger.info("render plugin(" + ext_name + ") returns valid result");
+          logger.info("render plugin(" + ext_name + ") returned valid result");
         } catch (Exception ex) {
           logger.error("Error occurred when rendering");
           publish("Error occurred when rendering");
