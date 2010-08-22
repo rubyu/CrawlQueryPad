@@ -32,7 +32,7 @@ def call(API):
         >>> 'value'
         API.setState(state) #save plugin state
     
-    This function must be returns a tuple (String title, File text).
+    This function must be return a tuple (String title, File text).
     
     If render plugin ignored the change of "worker.isCancelled()", user may get 
     slower response speed and lower application performance.

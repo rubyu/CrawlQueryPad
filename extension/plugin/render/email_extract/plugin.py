@@ -34,7 +34,7 @@ def call(API):
         >>> 'value'
         API.setState(state) #save plugin state
     
-    This function must be returns a tuple of String title and File text.
+    This function must be return a tuple (String title, File text).
     
     If render plugin ignored the change of "worker.isCancelled()", user may get 
     slower response speed and lower application performance.
@@ -50,7 +50,7 @@ def call(API):
     mailSet = set([])
     for i, loader in enumerate(results):
         if worker.isCancelled():
-            return "CANCELLED"
+            return "CANCELLED" #return a message "CANCELLED"
         worker.publish("Rendering... %d/%d" % (i + 1, len(results)))
         try:
             ins     = loader.getContent()
