@@ -85,39 +85,27 @@ def escape_filename(str):
         str = "(empty)"
     return str
     
-def call(API, data):
+def call(API):
     """
-    Main function of the extension.
-    Geven a few arguments and returns a message that 
-    displays on statusbar of CQPad.
+    Main function of the save extension.
     
-    "API" is the ExtensionAPI class object.
-    It's provides follow functions
-        void    setState(State state)
-        State   getState()
-        
-    * State is the manager class of Map<String, List<String, String>>.
-        It's provides follow functions
-            void    add(String key, String value)
-            void    add(String key, long value)
-            List<String>    getAll(String key)
-            Map<String, List<String, String>>   getAll()
-            String  getFirstOr(String key, String def)
-            long    getFirstOr(String key, long def)
-            Set<String> getKeys()
-            void    put(String key, List<String> list)
-            void    remove(String key)
-            void    set(String key, String value)
-            void    set(String key, long value)
-            String  toXML()
-            
-    "data" is a map object, contains some values.
-    data.get("title")       #title
-    data.get("textFile")    #text file
-    data.get("queryString") #query string
+    API is a instance of ExtensionAPI class, that provides access to "Data" and "State".
+    * Access to "Data"
+        data = API.getData() #get data map
+        data.get("query")
+        >>> '"http://www.google.com/" > 1'
+    * Access to "State"
+        state = API.getState()      #get plugin state
+        state.add("key", "value")   #add key and value
+        state.getFirstOr("key", "") #get value
+        >>> 'value'
+        API.setState(state) #save plugin state
+    
+    This function must be return a string, and that will be displayed on statusbar of CQPad.
     """
+    data = API.getData()
     title     = data.get("title")
-    textFile  = data.get("textFile")
+    text_file = data.get("text")
     
     state = API.getState()    
     path = state.getFirstOr( "path", "" )
@@ -130,12 +118,12 @@ def call(API, data):
             state.set( "path", path )
             API.setState(state)
     if "" != path:
-        saveFile = File(path, escape_filename(title + ".txt"))
-        f = open( saveFile.getPath(), "w" )
-        for line in open(textFile.getPath(), "r"):
+        save_file = File(path, escape_filename(title + ".txt"))
+        f = open( save_file.getPath(), "w" )
+        for line in open(text_file.getPath(), "r"):
             f.write( line )
         f.close()
-        return "\"%s\" saved" % saveFile.getPath()
+        return "\"%s\" saved" % save_file.getPath()
     else:
         return "Save Failed"
         

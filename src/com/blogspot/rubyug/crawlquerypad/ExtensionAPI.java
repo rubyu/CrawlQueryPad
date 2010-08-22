@@ -1,8 +1,11 @@
 
 package com.blogspot.rubyug.crawlquerypad;
 
+import com.devx.io.*;
+
 import java.sql.*;
 import java.io.*;
+import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,9 +13,17 @@ import org.slf4j.LoggerFactory;
 public class ExtensionAPI {
   protected static Logger logger = LoggerFactory.getLogger(Downloader.class);
 
-  String name = null;
+  private Map data = new HashMap();
+  private String name = null;
   public ExtensionAPI(String name) {
     this.name = name;
+  }
+  public Map getData() {
+    return data;
+  }
+  public File createTemporaryFile(String filename, String ext)
+  throws IOException {
+    return TempFileManager.createTempFile(filename, "." + ext);
   }
   public State getState() {
     Connection conn = null;

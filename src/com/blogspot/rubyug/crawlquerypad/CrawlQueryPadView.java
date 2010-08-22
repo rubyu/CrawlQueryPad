@@ -209,16 +209,16 @@ public class CrawlQueryPadView extends FrameView {
               pyi.exec("import " + pluginPath);
               pyi.exec("reload(" + pluginPath + ")");
               PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
-              Map map = new HashMap();
+              ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+              Map data = api.getData();
               logger.debug("title: " + resultTitle);
-              logger.debug("textFile: " + resultTextFile.getAbsolutePath());
-              logger.debug("queryString: " + worker.getQueryString());
-              map.put("title", titleTextField.getText());
-              map.put("textFile", resultTextFile);
-              map.put("queryString", worker.getQueryString());
-              pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
-              pyi.set("____DATA____",  map);
-              String result = pyi.eval(pluginPath + ".call(____API____, ____DATA____)").toString();
+              logger.debug("text: " + resultTextFile.getAbsolutePath());
+              logger.debug("query: " + worker.getQueryString());
+              data.put("title", titleTextField.getText());
+              data.put("text", resultTextFile);
+              data.put("query", worker.getQueryString());
+              pyi.set("____API____", api);
+              String result = pyi.eval(pluginPath + ".call(____API____)").toString();
               logger.info("result: " + result);
               //
               statusMessageLabel.setText("save plugin(" + ext_name + ") returns: " + result);
@@ -1052,13 +1052,13 @@ public class CrawlQueryPadView extends FrameView {
           pyi.exec("import " + pluginPath);
           pyi.exec("reload(" + pluginPath + ")");
           PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
-          Map map = new HashMap();
-          map.put("resultArr", resultArr);
-          map.put("queryString", worker.getQueryString());
-          map.put("worker", this);
-          pyi.set("____API____", new ExtensionAPI(ext_name.toString()));
-          pyi.set("____DATA____",  map);
-          Object ret = pyi.eval(pluginPath + ".call(____API____, ____DATA____)");
+          ExtensionAPI api = new ExtensionAPI(ext_name.toString());
+          Map data = api.getData();
+          data.put("results", resultArr);
+          data.put("query",   worker.getQueryString());
+          data.put("worker",  this);
+          pyi.set("____API____", api);
+          Object ret = pyi.eval(pluginPath + ".call(____API____)");
           if (ret instanceof PyTuple) {
             PyTuple retTuple = (PyTuple)ret;
             if (2 == retTuple.__len__()) {
