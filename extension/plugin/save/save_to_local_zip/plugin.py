@@ -8,6 +8,7 @@ from javax.swing import JFileChooser
 from java.io import File, BufferedInputStream, FileInputStream, FileOutputStream
 from java.util.zip import ZipEntry, ZipOutputStream
 import jarray
+import os
 
 def ext_name():
     """
@@ -29,64 +30,6 @@ def _show_directory_dialog():
       file = filechooser.getSelectedFile()
       return file.getAbsolutePath()
 
-def escape_filename(str):
-    #remove last period or blank 
-    buf = []
-    stop = False
-    for s in reversed(str):
-        if not stop:
-            if s == "." or \
-               s == " " or \
-               s == "\t":
-                continue
-            else:
-                stop = True
-        buf.insert(0, s)
-    str = "".join(buf)
-    #replace character of ascii 0-31
-    buf = []
-    for s in str:
-        if 31 < ord(s):
-            buf.append(s)
-        else:
-            buf.append("_")
-    str = "".join(buf)
-    #replace reserved character
-    str = str.replace("\\", u"￥")
-    str = str.replace("/", u"／")
-    str = str.replace(":", u"：")
-    str = str.replace("*", u"＊")
-    str = str.replace("?", u"？")
-    str = str.replace("\"", u"”")
-    str = str.replace("<", u"＜")
-    str = str.replace(">", u"＞")
-    str = str.replace("|", u"｜")
-    #delete if reserved name
-    if str == "AUX" or \
-       str == "CLOCK$" or \
-       str == "COM1" or str == "COM2" or \
-       str == "COM3" or str == "COM4" or \
-       str == "COM5" or str == "COM6" or \
-       str == "COM7" or str == "COM8" or \
-       str == "COM9" or \
-       str == "CON" or \
-       str == "CONFIG$" or \
-       str == "LPT1" or str == "LPT2" or \
-       str == "LPT3" or str == "LPT4" or \
-       str == "LPT5" or str == "LPT6" or \
-       str == "LPT7" or str == "LPT8" or \
-       str == "LPT9" or \
-       str == "NUL" or \
-       str == "PRN":
-        str == ""
-    #delete if .. or .
-    if str == "." or str == "..":
-        str = ""
-    #if empty
-    if str == "":
-        str = "(empty)"
-    return str
-    
 def call(API):
     """
     Main function of the save extension.
@@ -106,24 +49,22 @@ def call(API):
     This function must be return a string, and that will be displayed on statusbar of CQPad.
     """
     data = API.getData()
-    title     = data.get("title")
-    text_file = data.get("text")
+    filename = data.get("filename")
+    file     = data.get("file")
     
     state = API.getState()    
-    path = state.getFirstOr( "path", "" )
-    if not File(path).exists():
-        path = ""
-    if "" == path:
+    path = state.getFirstOr("path", "")
+    if not path or not os.path.exists(path):
         _path = _show_directory_dialog()
-        if None != _path:
+        if _path:
             path = _path
-            state.set( "path", path )
+            state.set("path", path)
             API.setState(state)
-    if "" != path:
-        save_file = File( path, escape_filename("%s.zip" % title) )
-        input_stream      = BufferedInputStream( FileInputStream(text_file) )
+    if path and os.path.exists(path):
+        save_file = File( path, "%s.zip" % filename )
+        input_stream      = BufferedInputStream( FileInputStream(file) )
         zip_output_stream = ZipOutputStream( FileOutputStream(save_file) )
-        zip_entry         = ZipEntry("%s.txt" % title)
+        zip_entry         = ZipEntry(filename)
         zip_output_stream.putNextEntry(zip_entry)
         buf = jarray.zeros(1024, "b")
         while True:

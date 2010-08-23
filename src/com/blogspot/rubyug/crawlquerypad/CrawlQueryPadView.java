@@ -211,11 +211,11 @@ public class CrawlQueryPadView extends FrameView {
               PyObject ext_name = pyi.eval(pluginPath + ".ext_name()");
               ExtensionAPI api = new ExtensionAPI(ext_name.toString());
               Map data = api.getData();
-              logger.debug("title: " + resultTitle);
-              logger.debug("text: " + resultTextFile.getAbsolutePath());
+              logger.debug("filename: " + resultFileName);
+              logger.debug("file: " + resultFile.getAbsolutePath());
               logger.debug("query: " + worker.getQueryString());
-              data.put("title", titleTextField.getText());
-              data.put("text", resultTextFile);
+              data.put("filename", titleTextField.getText());
+              data.put("file", resultFile);
               data.put("query", worker.getQueryString());
               pyi.set("____API____", api);
               String result = pyi.eval(pluginPath + ".call(____API____)").toString();
@@ -600,8 +600,8 @@ public class CrawlQueryPadView extends FrameView {
       model = (DefaultTableModel)resultTable.getModel();
       model.setRowCount(0);
       //
-      resultTextFile = null;
-      resultTitle    = null;
+      resultFile     = null;
+      resultFileName = null;
       //
       resultTextArea.setText("");
       titleTextField.setText("");
@@ -1062,8 +1062,8 @@ public class CrawlQueryPadView extends FrameView {
           if (ret instanceof PyTuple) {
             PyTuple retTuple = (PyTuple)ret;
             if (2 == retTuple.__len__()) {
-              resultTitle    = (String)retTuple.get(0);
-              resultTextFile = (File)retTuple.get(1);
+              resultFileName = (String)retTuple.get(0);
+              resultFile     = (File)retTuple.get(1);
             } else {
               throw new Exception("invalid result");
             }
@@ -1140,11 +1140,11 @@ public class CrawlQueryPadView extends FrameView {
               model.addRow(row);
             }
             //result
-            titleTextField.setText(resultTitle);
+            titleTextField.setText(resultFileName);
             String text = "";
             InputStream in = null;
             try {
-              in = new FileInputStream(resultTextFile);
+              in = new FileInputStream(resultFile);
               text = Utils.InputStreamToString(in, "utf-8");
             } catch (Exception e) {
               logger.error(Utils.ThrowableToString(e));
@@ -1689,6 +1689,6 @@ public class CrawlQueryPadView extends FrameView {
     private CrawlExcecuteWorker worker = null;
     private List<String> extensions_of_save   = null;
     private List<String> extensions_of_render = null;
-    private String resultTitle = null;
-    private File resultTextFile = null;
+    private String resultFileName = null;
+    private File resultFile       = null;
 }

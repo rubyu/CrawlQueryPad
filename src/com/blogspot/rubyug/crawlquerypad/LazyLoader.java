@@ -9,9 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * URLに対するレスポンスをロードするクラス
- * header, bodyそれぞれ、必要になった段階でロードする
- * 全てのリクエストをキャッシュする
+ * URLに対するレスポンスをロードするクラス。
+ * header, bodyそれぞれ、必要になった段階でロードする。
+ * 全てのリクエストをキャッシュする。
  * @author rubyu <@ruby_U>
  */
 public class LazyLoader {
