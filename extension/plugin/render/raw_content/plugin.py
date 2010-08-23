@@ -8,13 +8,13 @@ def ext_name():
     """
     Returns this extension's name.
     """
-    return "text_extract_for_aozora_bunko"
+    return "raw_content"
 
 def ext_description():
     """
     Returns this extension's summary.
     """
-    return u"HTMLからテキストを抽出して青空文庫の予約文字をエスケープする"
+    return "Raw content of results."
 
 def call(API):
     """
@@ -45,7 +45,7 @@ def call(API):
     query   = data.get("query")   #query string
     
     filename = ""
-    file     = API.createTemporaryFile("txt") #temporary file
+    file     = API.createTemporaryFile("html") #temporary file
     
     f = open(file.getPath(), "w")
     for i, loader in enumerate(results):
@@ -55,23 +55,8 @@ def call(API):
         try:
             title = loader.getTitle().strip()
             if not filename:
-                filename = "%s.txt" % title
-            text = loader.getText()
-            text = text.replace(u"＃", "#")
-            text = text.replace(u"※", "*")
-            text = text.replace(u"《", "<<")
-            text = text.replace(u"》", ">>")
-            text = text.replace(u"［", "[")
-            text = text.replace(u"］", "]")
-            text = text.replace(u"〔", "[")
-            text = text.replace(u"〕", "]")
-            text = text.replace(u"｜", "|")
-            f.write( "----------------------------------------\n" )
-            f.write( "[" )
-            f.write( "%d/%d " % (i + 1, len(results)) )
-            f.write( " %s" % title.encode("utf-8", "replace") )
-            f.write( "]\n" )
-            f.write( text.encode("utf-8", "replace") )
+                filename = "%s.html" % title
+            f.write( loader.getContentString().encode("utf-8", "replace") )
             f.write( "\n" )
         except:
             print "error occurred inside a render plugin! (%d/%d) url: %s" % (i + 1, len(results), loader.getUrl())
