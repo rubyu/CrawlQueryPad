@@ -1102,11 +1102,11 @@ public class CrawlQueryPadView extends FrameView {
           }
           LazyLoader loader = resultArr[i];
           String title = loader.getTitle();
-          if (null != title && 100 < title.length()) {
+          if (100 < title.length()) {
             title = title.substring(0, 100); //切り捨て
           }
           String text  = loader.getText();
-          if (null != text && 100 < text.length()) {
+          if (100 < text.length()) {
             text = text.substring(0, 100); //切り捨て
           }
           rows.add(

@@ -8,13 +8,13 @@ import java.util.Date;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * URLに対するレスポンスをロードするクラス
+ * header, bodyそれぞれ、必要になった段階でロードする
+ * 全てのリクエストをキャッシュする
+ * @author
+ */
 public class LazyLoader {
-  /*
-   * URLに対するレスポンスをロードするクラス
-   * header, bodyそれぞれ、必要になった段階でロードする
-   * 全てのリクエストをキャッシュする
-   * 
-   */
   protected static Logger logger = LoggerFactory.getLogger(LazyLoader.class);
 
   private Connection conn = null;
@@ -22,6 +22,10 @@ public class LazyLoader {
   private String fullUrl = null;
 
   private static int maxRetry = 0;
+  /**
+   * ダウンロードに失敗した際のリトライの最大回数を設定する。
+   * @param n
+   */
   public static void setMaxRetry(int n) {
     if (n < 0) {
       logger.warn("n < 0");
@@ -32,6 +36,10 @@ public class LazyLoader {
   }
   private Date lastDownload = new Date();
   private static int waitTime = 0; //msec
+  /**
+   * ダウンロード後のウェイトを設定する。
+   * @param n
+   */
   public static void setWait(int n) {
     if (n < 0) {
       logger.warn("n < 0");
@@ -50,18 +58,39 @@ public class LazyLoader {
       //IGNORE
     }
   }
+  /**
+   * loaderがDBへのアクセスに使用するConnectionを設定する。
+   * @param conn
+   */
   public void setConnection(Connection conn) {
     this.conn = conn;
   }
+  /**
+   * LazyLoaderManagerで一意に割り振られたIDを返す。
+   * @return
+   */
   public Integer getId() {
     return this.id;
   }
+  /**
+   * アンカーを除いたURLを返す。
+   * @return
+   */
   public String getUrl() {
     return (String)DomUtils.getSplitedByAnchor(this.fullUrl)[0];
   }
+  /**
+   * URLを返す。
+   * @return
+   */
   public String getFullUrl() {
     return this.fullUrl;
   }
+  /**
+   * loaderの状態を格納したStateを取得する。
+   * 必ずStateを返す。nullは返さない。
+   * @return
+   */
   public State getState() {
     logger.debug("getState: " + getFullUrl());
     ResultSet rs = null;
@@ -83,6 +112,11 @@ public class LazyLoader {
     }
     return new State();
   }
+  /**
+   * ヘッダ情報を格納したStateを取得する。
+   * 必ずStateを返す。nullは返さない。
+   * @return
+   */
   public State getHeader() {
     logger.debug("getHeader: " + getFullUrl());
     ResultSet rs = null;
@@ -136,6 +170,11 @@ public class LazyLoader {
     }
     return new State(); //not return null
   }
+  /**
+   * loaderのコンテンツを返す。
+   * 何らかの原因でコンテンツの取得に失敗した際はnullを返す。
+   * @return
+   */
   public InputStream getContent() {
     logger.debug("getContent: " + getFullUrl());
     ResultSet rs = null;
@@ -195,6 +234,12 @@ public class LazyLoader {
     }
     return null;
   }
+  /**
+   * 文字コードを推定し取得する。
+   * 必ずStringを返す。nullは返さない。
+   * デフォルト値は"us-ascii"。
+   * @return
+   */
   public String guessCharset() {
     InputStream in = null;
     try {
@@ -209,13 +254,17 @@ public class LazyLoader {
       }
     }
   }
+  /**
+   * getContent()の内容をStringで取得する。
+   * 必ずStringを返す。nullは返さない。
+   * @return
+   */
   public String getContentString() {
     InputStream in = null;
     try {
       in = getContent();
       String charset = guessCharset();
-      if (in != null &&
-          charset != null) {
+      if (in != null) {
         return Utils.InputStreamToString(in, charset);
       }
     } catch (IOException e) {
@@ -229,6 +278,11 @@ public class LazyLoader {
     }
     return null;
   }
+  /**
+   * タイトルを取得する。
+   * 必ずStringを返す。nullは返さない。
+   * @return
+   */
   public String getTitle() {
     logger.debug("getTitle: " + getFullUrl());
     ResultSet rs = null;
@@ -242,8 +296,7 @@ public class LazyLoader {
       }
       in = getContent();
       String charset = guessCharset();
-      if (in != null &&
-          charset != null) {
+      if (in != null) {
         String title = DomUtils.extractText(in, charset, null);
         if (null == title) {
           title = "";
@@ -260,8 +313,13 @@ public class LazyLoader {
         } catch (Exception e) {}
       }
     }
-    return null;
+    return "";
   }
+  /**
+   * テキストを取得する。
+   * 必ずStringを返す。nullは返さない。
+   * @return
+   */
   public String getText() {
     logger.debug("getText: " + getFullUrl());
     ResultSet rs = null;
@@ -275,8 +333,7 @@ public class LazyLoader {
       }
       in = getContent();
       String charset = guessCharset();
-      if (in != null &&
-          charset != null) {
+      if (in != null) {
         StringWriter sw = new StringWriter();
         WhitespaceFilterWriter writer = new WhitespaceFilterWriter(sw);
         DomUtils.extractText(in, charset, writer);
@@ -293,7 +350,7 @@ public class LazyLoader {
         } catch (Exception e) {}
       }
     }
-    return null;
+    return "";
   }
   private void createCache(String url, State state)
   throws SQLException {

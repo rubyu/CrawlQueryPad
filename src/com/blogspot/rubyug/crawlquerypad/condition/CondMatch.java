@@ -66,27 +66,20 @@ public class CondMatch implements ICondition {
     } else if (this.field == Fields.Field.TITLE) {
       String value = loader.getTitle();
       logger.debug("value: " + value);
-      if (value != null) {
-        return this.pattern.matcher(value).find();
-      }
+      return this.pattern.matcher(value).find();
 
     } else if (this.field == Fields.Field.BODY) {
       String value = loader.getContentString();
       logger.debug("value: " + value);
-      if (value != null) {
-        return this.pattern.matcher(value).find();
-      }
+      return this.pattern.matcher(value).find();
       
     } else if (this.field == Fields.Field.TEXT) {
       String value = loader.getText();
       logger.debug("value: " + value);
-      if (value != null) {
-        return this.pattern.matcher(value).find();
-      }
+      return this.pattern.matcher(value).find();
 
     } else {
       throw new RuntimeException("Unknown Field!");
     }
-    return false;
   }
 }

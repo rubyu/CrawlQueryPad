@@ -57,7 +57,9 @@ public class DomUtils {
           Pattern.CASE_INSENSITIVE
           );
   /**
-   * Guesses charset of css/html/plain-text/etc.
+   * css/html/plain-text/その他　の文字コードを推定する。
+   * 必ずStringを返す。nullは返さない。
+   * デフォルト値は"us-ascii"。
    * @param State header
    * @param InputStream contentStream
    * @return String

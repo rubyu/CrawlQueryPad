@@ -53,11 +53,12 @@ def call(API):
             return "CANCELLED" #return a message "CANCELLED"
         worker.publish("Rendering... %d/%d" % (i + 1, len(results)))
         try:
-            ins     = loader.getContent()
-            charset = loader.guessCharset()
-            for mail in DomUtils.extractMails(loader.getUrl(), ins, charset):
-                if not mail in mailSet:
-                    mailSet.add(mail)
+            ins = loader.getContent()
+            if ins:
+                charset = loader.guessCharset()
+                for mail in DomUtils.extractMails(loader.getUrl(), ins, charset):
+                    if not mail in mailSet:
+                        mailSet.add(mail)
         except:
             print "error occurred inside a render plugin! (%d/%d) url: %s" % (i + 1, len(results), loader.getUrl())
         finally:

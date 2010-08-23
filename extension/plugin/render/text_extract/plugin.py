@@ -44,7 +44,7 @@ def call(API):
     worker  = data.get("worker")  #swing worker thread
     query   = data.get("query")   #query string
     
-    result_title = None
+    result_title = ""
     result_file  = API.createTemporaryFile("txt") #temporary file
     
     f = open(result_file.getPath(), "w")
@@ -53,27 +53,18 @@ def call(API):
             return "CANCELLED" #return a message "CANCELLED"
         worker.publish("Rendering... %d/%d" % (i, len(results)))
         try:
-            title = loader.getTitle()
-            if not title:
-                title = ""
-            else:
-                title = title.strip()
-                if not result_title:
-                    result_title = title
-            text = loader.getText()
-            if not text:
-                text = ""
-            f.write("----------------------------------------\n")
-            f.write("[")
-            f.write("%d/%d " % (i + 1, len(results)))
-            f.write(" %s" % title.encode("utf-8", "replace"))
-            f.write("]\n")
-            f.write(text.encode("utf-8", "replace"))
-            f.write("\n")
+            title = loader.getTitle().strip()
+            if not result_title:
+                result_title = title
+            f.write( "----------------------------------------\n" )
+            f.write( "[" )
+            f.write( "%d/%d " % (i + 1, len(results)) )
+            f.write( " %s" % title.encode("utf-8", "replace") )
+            f.write( "]\n" )
+            f.write( loader.getText().encode("utf-8", "replace") )
+            f.write( "\n" )
         except:
             print "error occurred inside a render plugin! (%d/%d) url: %s" % (i + 1, len(results), loader.getUrl())
     f.close()
-    if not result_title:
-        result_title = ""
     return (result_title, result_file)
     
