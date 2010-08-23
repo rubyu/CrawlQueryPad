@@ -9,26 +9,53 @@ import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+/**
+ * Jython拡張の為のAPIを提供するクラス。
+ * @author rubyu <@ruby_U>
+ */
 public class ExtensionAPI {
   protected static Logger logger = LoggerFactory.getLogger(Downloader.class);
 
   private Map data = new HashMap();
   private String name = null;
+  /**
+   * 拡張の名前を与え、それを保持するクラスを返す。
+   * @param name
+   */
   public ExtensionAPI(String name) {
     this.name = name;
   }
+  /**
+   * インスタンスのデータ保持用マップを返す。
+   * ”このセッションで”拡張に渡すべきデータを格納する。
+   * @return
+   */
   public Map getData() {
     return data;
   }
+  /**
+   * テンポラリファイルを生成する。
+   * @return
+   * @throws IOException
+   */
   public File createTemporaryFile()
   throws IOException {
     return TempFileManager.createTempFile(name, null);
   }
+  /**
+   * 拡張子を指定し、テンポラリファイルを生成する。
+   * @param ext
+   * @return
+   * @throws IOException
+   */
   public File createTemporaryFile(String ext)
   throws IOException {
     return TempFileManager.createTempFile(name, "." + ext);
   }
+  /**
+   * ”永続する”データを格納するStateオブジェクトを返す。
+   * @return
+   */
   public State getState() {
     Connection conn = null;
     PreparedStatement prep = null;
@@ -58,6 +85,11 @@ public class ExtensionAPI {
     }
     return new State();
   }
+  /**
+   * 与えられたStateオブジェクトをデータベースに保存する。
+   * @param state
+   * @return
+   */
   public boolean setState(State state) {
     Connection conn = null;
     PreparedStatement prep = null;
