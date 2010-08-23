@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 /**
  * ダウンロードを行うクラス。
  * 可能な限り、接続回数を減らすように実装している。
+ * @author rubyu <@ruby_U>
  */
 public class Downloader implements Runnable {
   protected static Logger logger = LoggerFactory.getLogger(Downloader.class);

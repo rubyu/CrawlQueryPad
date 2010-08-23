@@ -8,6 +8,7 @@ import java.sql.*;
  * LazyLoaderを管理するクラス。
  * getLoader(URL) が適切なLazyLoaderを返す。
  * URLはナンバリングされ、（アンカをのぞく）URLに対し、一意に割り当てられる。
+ * @author rubyu <@ruby_U>
  */
 public class LazyLoaderManager {
   Connection conn = null;

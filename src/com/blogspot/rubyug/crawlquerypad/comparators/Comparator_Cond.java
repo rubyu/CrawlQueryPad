@@ -5,6 +5,10 @@ import com.blogspot.rubyug.crawlquerypad.*;
 import com.blogspot.rubyug.crawlquerypad.condition.*;
 import java.util.*;
 
+/**
+ * LazyLoaderを条件にマッチするかでソートするComparatorクラス。
+ * @author rubyu <@ruby_U>
+ */
 public class Comparator_Cond implements Comparator<LazyLoader> {
   Cond cond = null;
   public Comparator_Cond(Cond cond) {

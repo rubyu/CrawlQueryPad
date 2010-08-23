@@ -7,13 +7,22 @@ import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+/**
+ * 実際のtestを行うICondition実装クラス。
+ * @author rubyu <@ruby_U>
+ */
 public class CondMatch implements ICondition {
   protected static Logger logger = LoggerFactory.getLogger(CondMatch.class);
     
   Fields.Field field = null;
   Pattern pattern = null;
-  
+  /**
+   * フィールド、パターン、オプションを与え、正規表現をコンパイル。
+   * それを保持するクラスを返す。
+   * @param field
+   * @param pattern
+   * @param option
+   */
   public CondMatch(Fields.Field field, String pattern, String option) {
     this.field = field;
     Set<Integer> flags = new HashSet<Integer>();
@@ -46,6 +55,11 @@ public class CondMatch implements ICondition {
       this.pattern = Pattern.compile(pattern, flag);
     }
   }
+  /**
+   * LazyLoaderの指定のフィールドに対し、正規表現でfind()を行い、結果を返す。
+   * @param loader
+   * @return
+   */
   public boolean test(LazyLoader loader) {
     logger.debug("test()");
     logger.debug("field: " + this.field.name());

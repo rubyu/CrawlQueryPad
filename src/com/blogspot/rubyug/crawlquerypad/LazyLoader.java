@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
  * URLに対するレスポンスをロードするクラス
  * header, bodyそれぞれ、必要になった段階でロードする
  * 全てのリクエストをキャッシュする
- * @author
+ * @author rubyu <@ruby_U>
  */
 public class LazyLoader {
   protected static Logger logger = LoggerFactory.getLogger(LazyLoader.class);
