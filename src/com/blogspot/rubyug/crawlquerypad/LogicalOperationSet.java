@@ -7,17 +7,44 @@ import java.io.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+/**
+ * URL集合を扱うためのクラス。
+ * 論理演算、クロール、各種フィルタを実装する。
+ * @author rubyu <@ruby_U>
+ */
 public class LogicalOperationSet extends HashSet<Integer> {
   protected static Logger logger = LoggerFactory.getLogger(LogicalOperationSet.class);
 
   LazyLoaderManager manager = null;
   CrawlQueryPadView.CrawlExcecuteWorker worker = null;
+  /**
+   * 空のLogicalOperationSetを生成して返す。
+   * @param manager
+   * @param worker
+   */
   public LogicalOperationSet(LazyLoaderManager manager, CrawlQueryPadView.CrawlExcecuteWorker worker) {
     super();
     this.manager = manager;
     this.worker = worker;
   }
+  /**
+   * クロールを行い、結果のLogicalOperationSetを返す。
+   * workerがキャンセルされる可能性があるので、ループでは常に監視する。
+   * 
+   * フィルタ処理は
+   * ・条件でのフィルタ
+   * ・レスポンスコードでのフィルタ
+   * ・Content-Typeでのフィルタ
+   * ・（リダイレクトが発生した際のためもう一度）条件でのフィルタ
+   * の順で行っている。
+   * 連続したLocationでの遷移過程のURLはフィルタの対象としない。
+   * 処理速度のため、全てのアイテムにgetContent()を行うような処理もしない。
+   * （frame src であれば自身との置換、が正しいが、外部リンク扱いしている）
+
+   * @param depth
+   * @param conds
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getCrawled(int depth, List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet     = this;
@@ -89,20 +116,6 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
       logger.debug("size: " + tempSet.size());
 
-      /*
-       * 以下でのフィルタは、Locationでの連続した遷移過程のURLを対象としない。
-       * 処理速度のため、全てのアイテムにgetContent()を行うような処理もしない。
-       * （frame src であれば自身との置換、が正しいが、外部リンク扱いしている）
-       * 
-       * 以下では
-       * ・条件でのフィルタ
-       * ・レスポンスコードでのフィルタ
-       * ・Content-Typeでのフィルタ
-       * ・（リダイレクトが発生した際のためもう一度）条件でのフィルタ
-       * を行っている。
-       * Setの同一判定を行えば最後の処理は軽減できる。
-       */
-      
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size: " + tempSet.size());
@@ -130,6 +143,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
         break;
       }
 
+      //Setの同一判定を行えばこの処理はパスできる…
       logger.debug("Cond Filter");
       tempSet = tempSet.getCondsFiltered(conds);
       logger.debug("size: " + tempSet.size());
@@ -144,6 +158,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
+  /**
+   * レスポンスコードによるフィルタリングを行い、結果のLogicalOperationSetを返す。
+   * workerがキャンセルされる可能性があるので、ループでは常に監視する。
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getResponseCodeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
@@ -189,7 +208,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
-
+  /**
+   * コンテンツタイプによるフィルタリングを行い、結果のLogicalOperationSetを返す。
+   * workerがキャンセルされる可能性があるので、ループでは常に監視する。
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getContentTypeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
@@ -217,7 +240,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
-
+  /**
+   * 条件によるフィルタリングを行い、結果のLogicalOperationSetを返す。
+   * workerがキャンセルされる可能性があるので、ループでは常に監視する。
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getCondsFiltered(List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
@@ -233,8 +260,8 @@ public class LogicalOperationSet extends HashSet<Integer> {
       LazyLoader loader = manager.getLazyLoader(id);
       logger.debug("checking: " + loader.getUrl());
       boolean match = true;
-      for (Cond cond : conds) {
-        if (cond.test(loader)) {
+      for (Cond cond : conds) { //全ての条件について
+        if (cond.test(loader)) { //一つずつテスト
           logger.debug("match");
         } else {
           logger.debug("not match");
@@ -251,7 +278,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
-  
+  /**
+   * 自身と、与えられたLogicalOperationSetの差集合（A - B）になるLogicalOperationSetを返す。
+   * @param loSet
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getDifference(LogicalOperationSet loSet) {
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
@@ -262,6 +293,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
+  /**
+   * 自身と、与えられたLogicalOperationSetの積集合（A and B）になるLogicalOperationSetを返す。
+   * @param loSet
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getIntersection(LogicalOperationSet loSet) {
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id: loSet) {
@@ -271,6 +307,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
+  /**
+   * 自身と、与えられたLogicalOperationSetの対称差集合（(A or B) - (A and B)）になるLogicalOperationSetを返す。
+   * @param loSet
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getSymmetricDifference(LogicalOperationSet loSet) {
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
@@ -285,6 +326,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
     }
     return newSet;
   }
+  /**
+   * 自身と、与えられたLogicalOperationSetの和集合（A or B）になるLogicalOperationSetを返す。
+   * @param loSet
+   * @return LogicalOperationSet
+   */
   public LogicalOperationSet getUnion(LogicalOperationSet loSet) {
     LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
