@@ -4,19 +4,16 @@ package com.blogspot.rubyug.crawlquerypad.comparators;
 import com.blogspot.rubyug.crawlquerypad.*;
 import com.blogspot.rubyug.crawlquerypad.condition.*;
 import java.util.*;
-import java.sql.*;
 
 public class Comparator_Cond implements Comparator<LazyLoader> {
-  Cond cond       = null;
-  Connection conn = null;
-  public Comparator_Cond(Connection conn, Cond cond) {
+  Cond cond = null;
+  public Comparator_Cond(Cond cond) {
     super();
     this.cond = cond;
-    this.conn = conn;
   }
   public int compare(LazyLoader loader1, LazyLoader loader2) {
-    boolean m1 = cond.test(conn, loader1);
-    boolean m2 = cond.test(conn, loader2);
+    boolean m1 = cond.test(loader1);
+    boolean m2 = cond.test(loader2);
     if (m1 == m2) {
       return 0;
     }

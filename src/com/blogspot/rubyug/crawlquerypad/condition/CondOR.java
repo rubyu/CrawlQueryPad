@@ -2,7 +2,6 @@
 package com.blogspot.rubyug.crawlquerypad.condition;
 
 import com.blogspot.rubyug.crawlquerypad.*;
-import java.sql.*;
 
 public class CondOR implements ICondition {
   ICondition cond1 = null;
@@ -11,7 +10,7 @@ public class CondOR implements ICondition {
     this.cond1 = cond1;
     this.cond2 = cond2;
   }
-  public boolean test(Connection conn, LazyLoader loader) {
-    return cond1.test(conn, loader) || cond2.test(conn, loader);
+  public boolean test(LazyLoader loader) {
+    return cond1.test(loader) || cond2.test(loader);
   }
 }

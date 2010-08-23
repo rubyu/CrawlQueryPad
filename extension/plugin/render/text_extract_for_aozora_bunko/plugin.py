@@ -56,6 +56,7 @@ def call(API):
             title = loader.getTitle().strip()
             if not result_title:
                 result_title = title
+            text = loader.getText()
             text = text.replace(u"＃", "#")
             text = text.replace(u"※", "*")
             text = text.replace(u"《", "<<")
@@ -70,7 +71,7 @@ def call(API):
             f.write( "%d/%d " % (i + 1, len(results)) )
             f.write( " %s" % title.encode("utf-8", "replace") )
             f.write( "]\n" )
-            f.write( loader.getText().encode("utf-8", "replace") )
+            f.write( text.encode("utf-8", "replace") )
             f.write( "\n" )
         except:
             print "error occurred inside a render plugin! (%d/%d) url: %s" % (i + 1, len(results), loader.getUrl())

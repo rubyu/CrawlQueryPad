@@ -4,19 +4,23 @@ package com.blogspot.rubyug.crawlquerypad;
 import java.util.*;
 import java.sql.*;
 
+/**
+ * LazyLoaderを管理するクラス。
+ * getLoader(URL) が適切なLazyLoaderを返す。
+ * URLはナンバリングされ、（アンカをのぞく）URLに対し、一意に割り当てられる。
+ */
 public class LazyLoaderManager {
-  /*
-   * LazyLoaderを管理するクラス
-   * getLoader(URL) が適切なLazyLoaderを返す。
-   * URLはnumberingされ、（アンカをのぞく）URLに対し、一意に割り当てられる。
-   */
- 
+  Connection conn = null;
   public LazyLoaderManager(Connection conn) {
+    this.conn = conn;
   }
-
   private Set<String>  urlSet  = new HashSet<String>();
   private List<String> urlList = new ArrayList<String>();
-
+  /**
+   * URLからIDへの変換を行う。
+   * @param fullUrl
+   * @return
+   */
   private int getIndexOfUrl(String fullUrl) {
     if (urlSet.contains(fullUrl)) {
       return urlList.indexOf(fullUrl);
@@ -26,14 +30,29 @@ public class LazyLoaderManager {
       return urlList.indexOf(fullUrl);
     }
   }
+  /**
+   * URLを登録し、IDを返す。
+   * @param fullUrl
+   * @return
+   */
   public int register(String fullUrl) {
     return getIndexOfUrl(fullUrl);
   }
-  public LazyLoader getLazyLoader(Connection conn, String fullUrl) {
+  /**
+   * 与えられたURLと結びついたloaderを返す。
+   * @param fullUrl
+   * @return
+   */
+  public LazyLoader getLazyLoader(String fullUrl) {
     int id = getIndexOfUrl(fullUrl);
     return new LazyLoader(conn, id, fullUrl);
   }
-  public LazyLoader getLazyLoader(Connection conn, int id) {
+  /**
+   * 与えられたIDと結びついたloaderを返す。
+   * @param id
+   * @return
+   */
+  public LazyLoader getLazyLoader(int id) {
     String fullUrl = urlList.get(id);
     return new LazyLoader(conn, id, fullUrl);
   }

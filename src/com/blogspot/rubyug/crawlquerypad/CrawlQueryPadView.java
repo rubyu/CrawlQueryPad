@@ -965,7 +965,7 @@ public class CrawlQueryPadView extends FrameView {
 
           } else if ( inst == CQCompiler.Inst.URLS ) {
             List fromArr = pool.get((Integer)op2);
-            LogicalOperationSet urls = new LogicalOperationSet(conn, manager, this);
+            LogicalOperationSet urls = new LogicalOperationSet(manager, this);
             for (Object o : fromArr) {
               String url = (String)DomUtils.getSplitedByAnchor((String)o)[0];
               if (!DomUtils.isValidURL(url)) {
@@ -998,7 +998,7 @@ public class CrawlQueryPadView extends FrameView {
           }
           LogicalOperationSet set = (LogicalOperationSet)rootObj;
           for (Integer id : set) {
-            LazyLoader loader = manager.getLazyLoader(conn, id);
+            LazyLoader loader = manager.getLazyLoader(id);
             result.add(loader);
           }
         }
@@ -1015,7 +1015,7 @@ public class CrawlQueryPadView extends FrameView {
           }
           if (o instanceof Cond) {
             Cond cond = (Cond)o;
-            Arrays.sort( resultArr, new Comparator_Cond(conn, cond) );
+            Arrays.sort( resultArr, new Comparator_Cond(cond) );
           } else {
             List sort = (List)o;
             Fields.Field field = (Fields.Field)sort.get(0);

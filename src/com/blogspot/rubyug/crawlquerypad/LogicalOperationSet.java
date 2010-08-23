@@ -12,17 +12,12 @@ import org.slf4j.LoggerFactory;
 public class LogicalOperationSet extends HashSet<Integer> {
   protected static Logger logger = LoggerFactory.getLogger(LogicalOperationSet.class);
 
-  Connection conn = null;
   LazyLoaderManager manager = null;
   CrawlQueryPadView.CrawlExcecuteWorker worker = null;
-  public LogicalOperationSet(Connection conn, LazyLoaderManager manager, CrawlQueryPadView.CrawlExcecuteWorker worker) {
+  public LogicalOperationSet(LazyLoaderManager manager, CrawlQueryPadView.CrawlExcecuteWorker worker) {
     super();
-    this.conn = conn;
     this.manager = manager;
     this.worker = worker;
-  }
-  public Connection getConnection() {
-    return this.conn;
   }
   public LazyLoaderManager getManager() {
     return this.manager;
@@ -37,13 +32,13 @@ public class LogicalOperationSet extends HashSet<Integer> {
     LogicalOperationSet tempSet    = null;
     
     for (int i=0; i < depth; i++) {
-      tempSet = new LogicalOperationSet(conn, manager, worker);
+      tempSet = new LogicalOperationSet(manager, worker);
 
       int current_i = 0;
       int current_size = currentSet.size();
       for (int id : currentSet) {
         current_i++;
-        LazyLoader loader = manager.getLazyLoader(conn, id);
+        LazyLoader loader = manager.getLazyLoader(id);
         logger.debug(
           "Crawling " +
             "Depth " + (i+1) + "/" + depth + ", " +
@@ -158,7 +153,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
   }
   public LogicalOperationSet getResponseCodeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     boolean hasRedirect = false;
     int i = 0;
     for (Integer id : this) {
@@ -169,7 +164,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
       worker.publish(
         "Filtering by ResponseCode " + i + "/" + this.size()
         );
-      LazyLoader loader = manager.getLazyLoader(conn, id);
+      LazyLoader loader = manager.getLazyLoader(id);
       logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
       String responseCode = header.getFirstOr(null, "");
@@ -204,7 +199,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
   public LogicalOperationSet getContentTypeFiltered() {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     int i = 0;
     for (Integer id : this) {
       if (worker.isCancelled()) {
@@ -214,7 +209,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
       worker.publish(
         "Filtering by ContentType " + i + "/" + this.size()
         );
-      LazyLoader loader = manager.getLazyLoader(conn, id);
+      LazyLoader loader = manager.getLazyLoader(id);
       logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
       String contentType = header.getFirstOr("content-type", null);
@@ -232,7 +227,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
 
   public LogicalOperationSet getCondsFiltered(List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     int i = 0;
     for (Integer id : this) {
       if (worker.isCancelled()) {
@@ -242,11 +237,11 @@ public class LogicalOperationSet extends HashSet<Integer> {
       worker.publish(
         "Filtering by Condition " + i + "/" + this.size()
         );
-      LazyLoader loader = manager.getLazyLoader(conn, id);
+      LazyLoader loader = manager.getLazyLoader(id);
       logger.debug("checking: " + loader.getUrl());
       boolean match = true;
       for (Cond cond : conds) {
-        if (cond.test(conn, loader)) {
+        if (cond.test(loader)) {
           logger.debug("match");
         } else {
           logger.debug("not match");
@@ -265,7 +260,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
   }
   
   public LogicalOperationSet getDifference(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
       newSet.add(id);
     }
@@ -275,7 +270,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getIntersection(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id: loSet) {
       if (this.contains(id)) {
         newSet.add(id);
@@ -284,7 +279,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getSymmetricDifference(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
       if (!loSet.contains(id)) {
         newSet.add(id);
@@ -298,7 +293,7 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   public LogicalOperationSet getUnion(LogicalOperationSet loSet) {
-    LogicalOperationSet newSet = new LogicalOperationSet(conn, manager, worker);
+    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
     for (Integer id : this) {
       newSet.add(id);
     }
