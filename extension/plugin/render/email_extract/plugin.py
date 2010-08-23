@@ -45,7 +45,7 @@ def call(API):
     results = data.get("results") #result of query
     worker  = data.get("worker")  #swing worker thread
     query   = data.get("query")   #query string
-    file = API.createTemporaryFile("email_extract", "txt") #temporary file
+    file = API.createTemporaryFile("txt") #temporary file
     
     mailSet = set([])
     for i, loader in enumerate(results):

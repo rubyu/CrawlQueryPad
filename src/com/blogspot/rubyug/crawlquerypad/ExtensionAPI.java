@@ -21,9 +21,13 @@ public class ExtensionAPI {
   public Map getData() {
     return data;
   }
-  public File createTemporaryFile(String filename, String ext)
+  public File createTemporaryFile()
   throws IOException {
-    return TempFileManager.createTempFile(filename, "." + ext);
+    return TempFileManager.createTempFile(name, null);
+  }
+  public File createTemporaryFile(String ext)
+  throws IOException {
+    return TempFileManager.createTempFile(name, "." + ext);
   }
   public State getState() {
     Connection conn = null;

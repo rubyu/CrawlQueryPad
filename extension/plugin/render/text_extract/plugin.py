@@ -8,13 +8,13 @@ def ext_name():
     """
     Returns this extension's name.
     """
-    return "text_extract_for_aozora_bunko"
+    return "text_extract"
 
 def ext_description():
     """
     Returns this extension's summary.
     """
-    return "Extracts text that all special characters in aozora-bunko escaped."
+    return "Extracts text from html contents."
 
 def call(API):
     """
@@ -45,7 +45,7 @@ def call(API):
     query   = data.get("query")   #query string
     
     result_title = None
-    result_file  = API.createTemporaryFile("text_extract_for_aozora_bunko", "txt") #temporary file
+    result_file  = API.createTemporaryFile("txt") #temporary file
     
     f = open(result_file.getPath(), "w")
     for i, loader in enumerate(results):
