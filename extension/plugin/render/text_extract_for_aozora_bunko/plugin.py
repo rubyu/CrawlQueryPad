@@ -63,6 +63,15 @@ def call(API):
             text = loader.getText()
             if not text:
                 text = ""
+            text = text.replace(u"＃", "#")
+            text = text.replace(u"※", "*")
+            text = text.replace(u"《", "<<")
+            text = text.replace(u"》", ">>")
+            text = text.replace(u"［", "[")
+            text = text.replace(u"］", "]")
+            text = text.replace(u"〔", "[")
+            text = text.replace(u"〕", "]")
+            text = text.replace(u"｜", "|")
             f.write("----------------------------------------\n")
             f.write("[")
             f.write("%d/%d " % (i + 1, len(results)))
