@@ -8,6 +8,10 @@ import com.devx.io.TempFileManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * ダウンロードを行うクラス。
+ * 可能な限り、接続回数を減らすように実装している。
+ */
 public class Downloader implements Runnable {
   protected static Logger logger = LoggerFactory.getLogger(Downloader.class);
   //
@@ -29,7 +33,9 @@ public class Downloader implements Runnable {
   private Date endDate   = null;
   //
   private Map<String,List<String>> header = null;
-  
+  /**
+   * URLを与え、Downloaderインタンスを返す。
+   */
   public Downloader(String url)
   throws java.io.IOException {
     this.url = new URL(url);
@@ -51,6 +57,14 @@ public class Downloader implements Runnable {
     }
     file = TempFileManager.createTempFile("download", null);
   }
+  /**
+   * ダウンロードを実行する。
+   * 完了していれば即時終了する。
+   * ・ヘッダのキャッシュ
+   * ・ダウンロード
+   * ・コネクションのクローズ
+   * の順に行う。
+   */
   public void run() {
     if (completed) {
       return;
@@ -97,6 +111,10 @@ public class Downloader implements Runnable {
     }
     con = null;
   }
+  /**
+   * クッキーを設定する。
+   * @param cookie
+   */
   public void setCookie(String cookie) {
     if (isHttp && !isCompleted()) {
       logger.debug("set cookie: " + cookie);
@@ -104,9 +122,18 @@ public class Downloader implements Runnable {
       httpConnection.setRequestProperty("Cookie", cookie);
     }
   }
+  /**
+   * 経過時間を取得する。
+   * @return
+   */
   public long getErapsedTime() {
     return endDate.getTime() - startDate.getTime();
   }
+  /**
+   * トラフィックレートを取得する。
+   * 単位はkb/s。
+   * @return
+   */
   public long getTrafficRate() { // kb/s
     if (isCompleted() && !isFailed()) {
       try {
@@ -119,6 +146,10 @@ public class Downloader implements Runnable {
     }
     return 0;
   }
+  /**
+   * 進行状況を取得する。
+   * @return
+   */
   public float getProgress() {
     if (contentLength == -1) {
       return 0.0f;
@@ -128,6 +159,10 @@ public class Downloader implements Runnable {
     }
     return 1.0f;
   }
+  /**
+   * ダウンロードが完了し、成功しているなら、ダウンロードしたファイルのサイズを返す。
+   * @return
+   */
   public long getSize() {
     if (isCompleted() && !isFailed()) {
       try {
@@ -136,12 +171,25 @@ public class Downloader implements Runnable {
     }
     return 0;
   }
+  /**
+   * ダウンロードが完了していればtrueを返す。
+   * @return
+   */
   public boolean isCompleted() {
     return completed;
   }
+  /**
+   * ダウンロードが失敗していればtrueを返す。
+   * @return
+   */
   public boolean isFailed() {
     return failed;
   }
+  /**
+   * ダウンロードが完了していれば、ダウンロードしたファイルのストリームを返す。
+   * @return
+   * @throws java.io.IOException
+   */
   public InputStream getContentStream()
   throws java.io.IOException{
     if (isCompleted()) {
@@ -149,6 +197,11 @@ public class Downloader implements Runnable {
     }
     throw new IOException();
   }
+  /**
+   * ヘッダを返す。
+   * 一度取得すれば次からはキャッシュしたものを返す。
+   * @return
+   */
   public Map<String,List<String>> getHeader() {
     if (null == header) {
       if(!isCompleted()) { //null != con
@@ -158,9 +211,17 @@ public class Downloader implements Runnable {
     }
     return header;
   }
+  /**
+   * プロトコルを返す。
+   * @return
+   */
   public String getProtocol() {
     return protocol;
   }
+  /**
+   * コンストラクタで与えられたURLをそのまま返す。
+   * @return
+   */
   public String getUrl() {
     return url.toString();
   }
