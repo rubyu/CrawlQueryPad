@@ -2,7 +2,6 @@
 package com.blogspot.rubyug.crawlquerypad;
 
 import com.blogspot.rubyug.crawlquerypad.condition.*;
-import java.sql.*;
 import java.util.*;
 import java.io.*;
 
@@ -18,12 +17,6 @@ public class LogicalOperationSet extends HashSet<Integer> {
     super();
     this.manager = manager;
     this.worker = worker;
-  }
-  public LazyLoaderManager getManager() {
-    return this.manager;
-  }
-  public CrawlQueryPadView.CrawlExcecuteWorker getWorker() {
-    return this.worker;
   }
   public LogicalOperationSet getCrawled(int depth, List<Cond> conds) {
     logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
