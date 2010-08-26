@@ -44,7 +44,10 @@ import org.slf4j.LoggerFactory;
  */
 public class CrawlQueryPadView extends FrameView {
     protected static Logger logger = LoggerFactory.getLogger(CrawlQueryPadView.class);
-
+    /**
+     * Returns the path of dicrectory that contains application's jar file.
+     * @return
+     */
     public static String getCurrent() {
       String top = CrawlQueryPadView.class.getResource("/com/blogspot/rubyug/crawlquerypad/CrawlQueryPadView.class").getFile();
       try {
@@ -70,13 +73,39 @@ public class CrawlQueryPadView extends FrameView {
         top = ".";
         logger.trace(" -> " + top);
       }
-      logger.debug("getCurrent(): " + top);
+      logger.trace("getCurrent(): " + top);
       return top;
     }
+    /**
+     * Application constructor.
+     * @param app
+     */
     public CrawlQueryPadView(SingleFrameApplication app) {
       super(app);
-
       initComponents();
+
+      initializeStatusbarComponents();
+      initializePaneComponents();
+      
+      logger.info("getting database connection");
+      try {
+        conn = DB.getConnection();
+      } catch(Exception e) {
+        logger.error(Utils.ThrowableToString(e));
+        app.exit();
+      }
+      
+      initializePluginComponents();
+      initializeCommandComponents();
+      restoreWindowState();
+      initializeConfigComponents();
+      addTasksOnWindowClosing();
+      checkStandardInput();
+    }
+    /**
+     * Initializes statusbar components.
+     */
+    private void initializeStatusbarComponents() {
 
       // status bar initialization - message timeout, idle icon and busy animation, etc
       ResourceMap resourceMap = getResourceMap();
@@ -100,7 +129,11 @@ public class CrawlQueryPadView extends FrameView {
       idleIcon = resourceMap.getIcon("StatusBar.idleIcon");
       statusAnimationLabel.setIcon(idleIcon);
       progressBar.setVisible(false);
-
+    }
+    /**
+     * Initializes queryPane components.
+     */
+    private void initializePaneComponents() {
       queryPane.addCaretListener(new QueryPaneCaretListener());
 
       queryPaneDoc = (StyledDocument) queryPane.getDocument();
@@ -122,14 +155,11 @@ public class CrawlQueryPadView extends FrameView {
           }
       });
 
-      logger.info("getting database connection");
-      try {
-        conn = DB.getConnection();
-      } catch(Exception e) {
-        logger.error(Utils.ThrowableToString(e));
-        app.exit();
-      }
-      
+    }
+    /**
+     * Initializes plugin components.
+     */
+    private void initializePluginComponents() {
       //exts
       logger.info("extension initialize");
       extensions_of_save   = new ArrayList<String>();
@@ -198,7 +228,6 @@ public class CrawlQueryPadView extends FrameView {
           }
         }
       }
-
       saveSubmitButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             try {
@@ -229,7 +258,6 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         });
-
       saveResetButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             try {
@@ -249,7 +277,6 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         });
-
       renderResetButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             try {
@@ -269,7 +296,8 @@ public class CrawlQueryPadView extends FrameView {
             }
           }
         });
-
+    }
+    private void initializeCommandComponents() {
       crawlButton.addActionListener( new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             invokeQueryParse(true);
@@ -306,7 +334,8 @@ public class CrawlQueryPadView extends FrameView {
             insertStringToJTextPane(queryPane, "> @ url ASC ");
           }
         });
-
+    }
+    private void initializeConfigComponents() {
       int wait = (Integer)downloadWaitSpinner.getValue();
       LazyLoader.setWait(wait);
       downloadWaitSpinner.addChangeListener( new ChangeListener() {
@@ -325,8 +354,8 @@ public class CrawlQueryPadView extends FrameView {
             LazyLoader.setMaxRetry(maxRetry);
           }
         });
-
-
+    }
+    private void checkStandardInput() {
       StringBuilder sb = new StringBuilder();
       int c;
       try {
@@ -346,7 +375,8 @@ public class CrawlQueryPadView extends FrameView {
         setStringToJTextPane(queryPane, sb.toString());
         invokeQueryParse(true);
       }
-
+    }
+    private void restoreWindowState() {
       //restore state
       logger.info("restore state");
       try {
@@ -382,7 +412,8 @@ public class CrawlQueryPadView extends FrameView {
       } catch (Exception e) {
         logger.error("error occurred when restore states: " + Utils.ThrowableToString(e));
       }
-
+    }
+    private void addTasksOnWindowClosing() {
       //save state
       getFrame().addWindowListener(new WindowAdapter(){
         @Override
@@ -410,7 +441,7 @@ public class CrawlQueryPadView extends FrameView {
             pluginPath = extensions_of_save.get(index);
             logger.debug("plugin-save-selected: " + pluginPath);
             global.set("plugin-save-selected", pluginPath);
-            
+
             DB.Global.setState(conn, "window-state", global);
             conn.commit();
             conn.close();
@@ -420,10 +451,9 @@ public class CrawlQueryPadView extends FrameView {
 
         }
       });
-
     }
 
-    void insertStringToJTextPane(JTextPane pane, String text) {
+    private void insertStringToJTextPane(JTextPane pane, String text) {
       Document doc = pane.getDocument();
       StyleContext sc = new StyleContext();
       int pos = pane.getCaretPosition();
@@ -433,16 +463,16 @@ public class CrawlQueryPadView extends FrameView {
         logger.error(Utils.ThrowableToString(ex));
       }
     }
-    void setStringToJTextPane(JTextPane pane, String text) {
+    private void setStringToJTextPane(JTextPane pane, String text) {
       pane.setText(text);
       pane.setCaretPosition(0);
     }
-    void setStringToJTextArea(JTextArea textArea, String text) {
+    private void setStringToJTextArea(JTextArea textArea, String text) {
       textArea.setText(text);
       textArea.setCaretPosition(0);
     }
 
-    void highlightUpdate() {
+    private void highlightUpdate() {
         if (null == query) {
           return;
         }
@@ -590,7 +620,7 @@ public class CrawlQueryPadView extends FrameView {
         queryPaneDoc.addUndoableEditListener(undomanager);
 
     }
-    void queryParse(boolean doCrawl) {
+    private void queryParse(boolean doCrawl) {
       //apiPanel
       saveSubmitButton.setEnabled(false);
       //clear
@@ -688,14 +718,14 @@ public class CrawlQueryPadView extends FrameView {
         }
       }
     }
-    void invokeHighlightUpdate() {
+    private void invokeHighlightUpdate() {
       SwingUtilities.invokeLater(new Runnable() {
         public void run() {
           highlightUpdate();
         }
       });
     }
-    void invokeQueryParse(boolean doCrawl) {
+    private void invokeQueryParse(boolean doCrawl) {
       final boolean _doCrawl = doCrawl;
       SwingUtilities.invokeLater(new Runnable() {
         public void run() {
@@ -704,7 +734,7 @@ public class CrawlQueryPadView extends FrameView {
         }
       });
     }
-    class QueryPaneDocumentListener implements DocumentListener {
+    private class QueryPaneDocumentListener implements DocumentListener {
       public void insertUpdate(DocumentEvent e) {
         if (null != worker && !worker.isDone() && !worker.isCancelled()) {
           worker.cancel(true);
@@ -720,7 +750,7 @@ public class CrawlQueryPadView extends FrameView {
       public void changedUpdate(DocumentEvent e) {
       }
     }
-    class QueryPaneCaretListener implements CaretListener {
+    private class QueryPaneCaretListener implements CaretListener {
       public void caretUpdate(CaretEvent e){
         invokeHighlightUpdate();
       }
@@ -1674,16 +1704,16 @@ public class CrawlQueryPadView extends FrameView {
   private javax.swing.JButton urlButton;
   // End of variables declaration//GEN-END:variables
 
-    private final Timer messageTimer;
-    private final Timer busyIconTimer;
-    private final Icon idleIcon;
-    private final Icon[] busyIcons = new Icon[15];
+    private Timer messageTimer;
+    private Timer busyIconTimer;
+    private Icon idleIcon;
+    private Icon[] busyIcons = new Icon[15];
     private int busyIconIndex = 0;
 
     private JDialog aboutBox;
 
-    private final UndoManager undomanager;
-    private final StyledDocument queryPaneDoc;
+    private UndoManager undomanager;
+    private StyledDocument queryPaneDoc;
     private SimpleNode query = null;
     private Connection conn = null;
     private CrawlExcecuteWorker worker = null;
