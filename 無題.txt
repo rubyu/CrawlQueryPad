@@ -1,0 +1,92 @@
+
+.todo
+parserのテスト
+	dumpをテキストで取れるようにして正しい結果とで比較
+☑parserにcompileを移す
+☑enumでリファクタリング
+cqpadのテスト
+stop
+	→いらないかなー
+☑delay
+error時のdelay一時追加
+	→必要ない気がする
+☑downloadの進捗
+	または　Remaining
+	プログレス
+		Depth Valueの合計を計算、各Crawlで start = dv として、crawlのループでアップデートする
+			Crawl
+			Sort
+			Rendering
+			をそれぞれ適当なウェイトで、分配
+☑詳細なログ
+経過時間　残り時間
+☑リダイレクトループ中に、CondにマッチしないURLを経由することが　現状で可能　これはどうだろう？
+	リダイレクトの最初と終わり　のみを対象、遷移は気にしない、というのが現状
+		→これはこれで筋は通ってる
+"ダウンロード失敗"の定義が微妙…
+☑disconnect
+☑jythonプラグイン化
+	http://wiki.python.org/jython/LearningJython#classpath-and-python-path
+		で、.pyのimportは可能になると思う
+	テキストエリアにヒープ溢れるぐらいのテキストを投げるのは微妙。
+		ファイル保存、SavePluginにはストリームで　ならOKか
+	スクリプトからの任意のスクリプトのloadは可能
+	ディレクトリごとにプラグインとし、その内部で完結するように、か
+	ラッパだけインタプリタで実行して、プラグインはimportするようにするとキャッシュが残ってうれしい
+☑Error というステータス表示が消えない
+	コンパイルの段階で成功したら消すべし
+☑Fitering by ～の表示が　%d/%dFiltering ～となってる　スペースがない
+☑TempFileManagerで拡張子は.txtと指定しないといけない　.が無い場合がある
+workerのクラス分け
+	→doneでいろいろ触ったりするので微妙
+☑publicでないのでjythonからcallできなかった
+☑標準ライブラリの同梱
+複数ウィンドウは可能ではないか？
+	どうもイベント処理用のスレッドを共有するようだ　一方の処理が終わるまで、他方のクリック後の処理が待ち　とかそんな状態
+	→複数起動なら可能
+		Globalなデータを格納するデータベース
+		Temporaryなデータを格納するデータベース
+		前者を長時間ロックしないようにする
+		後者は起動時に~0, ~1と順にチェックして、空いているものをロックする　とか
+			この場合、Globalなデータで、依存関係のあるものは、書き込み時にまとめて書き出さないといけない。
+		→ログが…
+☑DBクラス分離
+☑プラグインでファイルをopenした状態でworkerが殺されるとreturnでioエラーが出る？
+	プラグインでtry except するのはキモいので、callするところでcatchするように
+		→returnしなければならないが、raiseしてる場合にioエラーが出てた。よくわからない
+			それから、jythonからraiseしたExceptionの型をjava側で判別できなかった。
+			なんかにくるまれてるような。とりあえず手抜き対処
+☑workerの各段階でisCancelledをチェック、必要ならばエラーを投げる
+☑pluginでのエラー表示と一般のエラー表示を分けたい
+	→Exceptionを作れば可能か
+☑ファイル名のダメ文字エスケープ
+☑LazyLoaderの各get～で、nullを返すかとかそういうの調べる
+	Streamはnullアリ、その他は空のものを返す
+もうそろそろInstsのテーブルをデフォでDisableにしてもいいんじゃないか
+☑やはりCondFilterとかの内部にもworker渡してpublishすべき
+☑プラグインからのメッセージリターンを規格化する
+extract ～ の名前変更、リファクタリング
+	mailの抽出はpyコードに移動したほうがいい？
+☑loader.getTitle, getText は空文字を返した方がpythonからは扱いやすい
+フィルタの表示でURLも
+☑レンダラで、拡張子も含めて返す
+	→txtとhtmlを区別したいので
+	保存はそのまま　Zipは.zipを追加して
+拡張
+	Summary、URL、Title, URL とか
+トラフィックレートとか保存？
+リファラ、Cookieを設定可能？
+URLを相対に書き換えて全てのファイルをZipで保存　とか
+	これができればnripper要らないような
+拡張ごとにsave:とかprefixつけてDBのState取得保存しないとごっちゃになる危険ががが
+コメントの拡充
+	英語日本語両方書けばいいんじゃね
+saveプラグインが返した表示が冗長
+収集したURLに対し、さらにcss, imageやらの抽出を行う処理　→　zip　か
+エラー収集
+自動アップデート
+
+.0663624000
+
+"http://www.google.com/search?sourceid=chrome&ie=UTF-8&q=0663624000" > $ ! ( /google/ | /wtfcalls/ | /telefoon/ | /frman/ | /nicooki/ ) > 2
+

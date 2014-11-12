@@ -10,7 +10,6 @@
 <project name="CrawlQueryPad" default="default" basedir=".">
     <description>Builds, tests, and runs the project CrawlQueryPad.</description>
     <import file="nbproject/build-impl.xml"/>
-    <import file="nbproject/profiler-build-impl.xml"/>
     <!--
 
     There exist several targets which are by default empty and which can be 
@@ -125,34 +124,17 @@
       </propertyregex>
       <echo>build-date: ${bzr.build-date}</echo>
 
-      <!-- javadoc -->
-      <javadoc additionalparam="${javadoc.additionalparam}" author="${javadoc.author}" charset="UTF-8" destdir="${dist.javadoc.dir}" docencoding="UTF-8" encoding="${javadoc.encoding.used}" failonerror="true" noindex="${javadoc.noindex}" nonavbar="${javadoc.nonavbar}" notree="${javadoc.notree}" private="${javadoc.private}" source="${javac.source}" splitindex="${javadoc.splitindex}" use="${javadoc.use}" useexternalfile="true" version="${javadoc.version}" windowtitle="${javadoc.windowtitle}">
-          <classpath>
-              <path path="${javac.classpath}"/>
-          </classpath>
-          <fileset dir="${src.dir}" excludes="${excludes}" includes="${includes}">
-              <filename name="**/*.java"/>
-          </fileset>
-          <fileset dir="${build.generated.sources.dir}" erroronmissingdir="false">
-              <include name="**/*.java"/>
-          </fileset>
-      </javadoc>
 
       <!-- copy -->
-      <copydir src="${basedir}/extension" dest="${dist.dir}/extension" />
+      <copydir src="${basedir}/ext" dest="${dist.dir}/ext" />
 
-      <!-- readme  -->
-      <delete file="${dist.dir}/README.TXT" />
-      <copy todir="${dist.dir}">
-        <fileset dir="${basedir}/readme" />
-      </copy>
-      
       <!-- move dist contents to publish directory -->
-      <move todir="${dist.dir}/cqpad">
-        <fileset dir="${dist.dir}" />
+      <move todir="${dist.dir}/cqpad-mod-emailextract">
+        <fileset dir="${dist.dir}">
+        </fileset>
       </move>
 
       <!-- archive directory -->
-      <zip zipfile="${dist.dir}/cqpad-${version}.${bzr.revno}.zip" basedir="${dist.dir}" />
+      <zip zipfile="${dist.dir}/cqpad-mod-emailextract-${version}.${bzr.revno}.zip" basedir="${dist.dir}" />
     </target>
 </project>
