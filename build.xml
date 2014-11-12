@@ -77,31 +77,6 @@
     <property name="tools.dir" value="./tools" />
     <property name="ant.contrib.jar" value="${tools.dir}/ant-contrib/ant-contrib.jar" />
 
-    <target name="-pre-compile">
-       <!-- save "bzr version-info" as xml -->
-      <taskdef resource="net/sf/antcontrib/antcontrib.properties">
-        <classpath>
-          <pathelement location="${ant.contrib.jar}"/>
-        </classpath>
-      </taskdef>
-      <exec executable="bzr" dir="${basedir}" outputproperty="bzr.version-info">
-        <arg line="version-info"/>
-      </exec>
-      <propertyregex property="bzr.revno" input="${bzr.version-info}" select="\1">
-        <regexp pattern="revno: ([0-9]+)"/>
-      </propertyregex>
-      <echo>revno: ${bzr.revno}</echo>
-      <propertyregex property="bzr.date" input="${bzr.version-info}" select="\1">
-        <regexp pattern="date: (.+\+[0-9]{4})"/>
-      </propertyregex>
-      <echo>date: ${bzr.date}</echo>
-      <propertyregex property="bzr.build-date" input="${bzr.version-info}" select="\1">
-        <regexp pattern="build-date: (.+\+[0-9]{4})"/>
-      </propertyregex>
-      <echo>build-date: ${bzr.build-date}</echo>
-      <echo encoding="UTF-8" file="${basedir}/src/version.xml"><![CDATA[<?xml version="1.0" encoding="utf-8"?><state><key name="version"><value>${version}</value></key><key name="revno"><value>${bzr.revno}</value></key><key name="date"><value>${bzr.date}</value></key><key name="build-date"><value>${bzr.build-date}</value></key></state>]]></echo>
-    </target>
-
     <target name="-post-jar">
       <taskdef resource="net/sf/antcontrib/antcontrib.properties">
         <classpath>
