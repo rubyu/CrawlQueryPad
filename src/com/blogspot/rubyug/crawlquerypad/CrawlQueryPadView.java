@@ -1185,7 +1185,11 @@ public class CrawlQueryPadView extends FrameView {
                 } catch (Exception e) {}
               }
             }
-            setStringToJTextArea(resultTextArea, text);
+            if (text.length() > 10000) {
+              setStringToJTextArea(resultTextArea, text.substring(0, 9999) + " ...");
+            } else {
+              setStringToJTextArea(resultTextArea, text);
+            }
             publish("Ready");
             logger.debug("Ready");
             //enable apiPanel
