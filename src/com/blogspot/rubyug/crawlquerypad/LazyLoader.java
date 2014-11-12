@@ -34,7 +34,6 @@ public class LazyLoader {
     logger.info("maxRetry setted to " + n);
     maxRetry = n;
   }
-  private Date lastDownload = new Date();
   private static int waitTime = 0; //msec
   /**
    * ダウンロード後のウェイトを設定する。
@@ -137,15 +136,10 @@ public class LazyLoader {
         }
         logger.debug("fail(" + fail + ") belows maxRetry(" + maxRetry + ")");
         try {
-          long diff = lastDownload.getTime() + waitTime - (new Date()).getTime();
-          if (0 < diff) { //残りwait時間がある
-            logger.info("waiting " + diff + "msec");
-            try {
-              Thread.sleep(diff);
-            } catch(Exception e) {}
+          if (waitTime > 0) {
+            logger.info("waiting " + waitTime + " msec ...");
+            Thread.sleep(waitTime);
           }
-          lastDownload = new Date();
-          
           Downloader dl = new Downloader(getUrl());
           //dl.run();
           State header = new State(dl.getHeader());
@@ -195,15 +189,10 @@ public class LazyLoader {
         }
         logger.debug("fail(" + fail + ") belows maxRetry(" + maxRetry + ")");
         try {
-          long diff = lastDownload.getTime() + waitTime - (new Date()).getTime();
-          if (0 < diff) { //残りwait時間がある
-            logger.info("waiting " + diff + "msec");
-            try {
-              Thread.sleep(diff);
-            } catch(Exception e) {}
+          if (waitTime > 0) {
+            logger.info("waiting " + waitTime + " msec ...");
+            Thread.sleep(waitTime);
           }
-          lastDownload = new Date();
-
           Downloader dl = new Downloader(getUrl());
           if (null != rs.getString("header")) { //headerが存在しないならついでに格納しておく
             State header = new State(dl.getHeader());
