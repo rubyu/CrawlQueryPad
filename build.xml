@@ -87,6 +87,9 @@
         </classpath>
       </taskdef>
       
+      <!-- copy -->
+      <copydir src="${basedir}/extension" dest="${dist.dir}/extension" />
+      
       <!-- move dist contents to publish directory -->
       <move todir="${dist.dir}/cqpad">
         <fileset dir="${dist.dir}">
