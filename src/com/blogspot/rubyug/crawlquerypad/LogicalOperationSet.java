@@ -125,10 +125,6 @@ public class LogicalOperationSet extends HashSet<Integer> {
         break;
       }
 
-      logger.debug("ResponseCode Filter");
-      tempSet = tempSet.getResponseCodeFiltered();
-      logger.debug("size: " + tempSet.size());
-
       if (worker.isCancelled()) {
         logger.debug("worker is Cancelled");
         break;
@@ -159,56 +155,6 @@ public class LogicalOperationSet extends HashSet<Integer> {
     return newSet;
   }
   /**
-   * レスポンスコードによるフィルタリングを行い、結果のLogicalOperationSetを返す。
-   * workerがキャンセルされる可能性があるので、ループでは常に監視する。
-   * @return LogicalOperationSet
-   */
-  public LogicalOperationSet getResponseCodeFiltered() {
-    logger.debug(Thread.currentThread().getStackTrace()[1].getMethodName() + "()");
-    LogicalOperationSet newSet = new LogicalOperationSet(manager, worker);
-    boolean hasRedirect = false;
-    int i = 0;
-    for (Integer id : this) {
-      if (worker.isCancelled()) {
-        break;
-      }
-      i++;
-      worker.publish(
-        "Filtering by ResponseCode " + i + "/" + this.size()
-        );
-      LazyLoader loader = manager.getLazyLoader(id);
-      logger.debug("checking: " + loader.getUrl());
-      State header = loader.getHeader();
-      String responseCode = header.getFirstOr(null, "");
-      String location     = header.getFirstOr("location", null);
-      logger.debug("response code: " + responseCode);
-      logger.debug("location: " + location);
-      if (location != null) {
-        if (DomUtils.isValidURL(location)) {
-          hasRedirect = true;
-          int newId = manager.register(location);
-          newSet.add(newId);
-          logger.debug("redirected -> " + location);
-        } else {
-          logger.debug("has location but is invalid");
-        }
-        continue;
-      }
-      if (-1 != responseCode.indexOf("200")) { //OK
-        newSet.add(id);
-        logger.debug("passed");
-        continue;
-      } else {
-        logger.debug("not passed");
-      }
-    }
-    if (hasRedirect) {
-      logger.debug("recursive filtering");
-      newSet = newSet.getResponseCodeFiltered(); //LOOP
-    }
-    return newSet;
-  }
-  /**
    * コンテンツタイプによるフィルタリングを行い、結果のLogicalOperationSetを返す。
    * workerがキャンセルされる可能性があるので、ループでは常に監視する。
    * @return LogicalOperationSet
@@ -222,18 +168,18 @@ public class LogicalOperationSet extends HashSet<Integer> {
         break;
       }
       i++;
-      worker.publish(
-        "Filtering by ContentType " + i + "/" + this.size()
-        );
+      worker.publish("Filtering by the type of content " + i + "/" + this.size());
       LazyLoader loader = manager.getLazyLoader(id);
       logger.debug("checking: " + loader.getUrl());
       State header = loader.getHeader();
       String contentType = header.getFirstOr("content-type", null);
-      if (//contentType == null ||
-          -1 != contentType.indexOf("htm") ||
-          -1 != contentType.indexOf("text/plain") ) {
+      if (contentType != null && 
+          (-1 != contentType.indexOf("htm") ||
+           -1 != contentType.indexOf("text/plain"))) {
         newSet.add(id);
         logger.debug("passed");
+        worker.publish("Downloading content " + i + "/" + this.size());
+        loader.getText();
       } else {
         logger.debug("not passed");
       }

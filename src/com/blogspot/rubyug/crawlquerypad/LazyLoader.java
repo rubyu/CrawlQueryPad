@@ -143,6 +143,11 @@ public class LazyLoader {
           Downloader dl = new Downloader(getUrl());
           //dl.run();
           State header = new State(dl.getHeader());
+          String responseCode = header.getFirstOr(null, "");
+          String location     = header.getFirstOr("location", null);
+          if (location == null && -1 == responseCode.indexOf("200")) {
+            throw new IllegalStateException("HTTP Status Code of the response is not 200");
+          }
           setHeader(getUrl(), header);
           return header;
           

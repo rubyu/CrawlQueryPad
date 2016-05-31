@@ -1007,10 +1007,8 @@ public class CrawlQueryPadView extends FrameView {
               logger.debug("urls.add id: " + urlId + " url: " + url);
             }
             //condによるフィルタリングは行わない・行えない
-            urls = urls.getResponseCodeFiltered();
             urls = urls.getContentTypeFiltered();
             pool.get(op1).add( urls );
-
           }
         }
         conn.commit();
