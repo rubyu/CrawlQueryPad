@@ -50,7 +50,7 @@ public class Downloader implements Runnable {
       logger.debug("set Redirect: false");
       logger.debug("set request headers");
       HttpURLConnection httpConnection = (HttpURLConnection)con;
-      httpConnection.setInstanceFollowRedirects(false);
+      httpConnection.setInstanceFollowRedirects(true);
       httpConnection.setRequestProperty("Accept", "application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5");
       httpConnection.setRequestProperty("Accept-Charset", "Shift_JIS,utf-8;q=0.7,*;q=0.3");
       httpConnection.setRequestProperty("Accept-Language", "ja,en-US;q=0.8,en;q=0.6");
