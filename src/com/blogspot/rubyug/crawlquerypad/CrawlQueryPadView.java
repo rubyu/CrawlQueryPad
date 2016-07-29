@@ -249,8 +249,7 @@ public class CrawlQueryPadView extends FrameView {
               pyi.set("____API____", api);
               String result = pyi.eval(pluginPath + ".call(____API____)").toString();
               logger.info("result: " + result);
-              //
-              statusMessageLabel.setText("save plugin(" + ext_name + ") returned: " + result);
+              statusMessageLabel.setText(result);
             } catch (Exception ex) {
               //textareaに書き出さないほうがいい
               statusMessageLabel.setText("PluginError: error occurred when saving");
@@ -380,7 +379,7 @@ public class CrawlQueryPadView extends FrameView {
       //restore state
       logger.info("restore state");
       try {
-        State global = DB.Global.getState(conn, "window-state");
+        State global = State.load("window");
         //download wait
         int value;
         value = (int)global.getFirstOr("download-wait", -1L);
@@ -419,7 +418,7 @@ public class CrawlQueryPadView extends FrameView {
         @Override
         public void windowClosing(WindowEvent event) {
           try {
-            State global = DB.Global.getState(conn, "window-state");
+            State global = new State();
             //download wait
             Integer value;
             value = (Integer)downloadWaitSpinner.getValue();
@@ -442,13 +441,10 @@ public class CrawlQueryPadView extends FrameView {
             logger.debug("plugin-save-selected: " + pluginPath);
             global.set("plugin-save-selected", pluginPath);
 
-            DB.Global.setState(conn, "window-state", global);
-            conn.commit();
-            conn.close();
+            global.save("window");
           } catch(Exception e) {
             logger.error("error occurred when save states: " + Utils.ThrowableToString(e));
           }
-
         }
       });
     }

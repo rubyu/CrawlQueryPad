@@ -4,8 +4,25 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/Downloader.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/State.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/ExtensionAPI.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/CrawlQueryPadAboutBox.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/resources/CrawlQueryPadApp.properties</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/Fields.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/LazyLoader.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/Orders.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/WhitespaceFilterWriter.java</file>
+            <file>file:/C:/CrawlQueryPad/src/version.xml</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/Utils.java</file>
             <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/CrawlQueryPadView.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/CrawlQueryPadApp.java</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/resources/CrawlQueryPadView.properties</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/LazyLoaderManager.java</file>
+            <file>file:/C:/CrawlQueryPad/manifest.mf</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/LogicalOperationSet.java</file>
             <file>file:/C:/CrawlQueryPad/build.xml</file>
+            <file>file:/C:/CrawlQueryPad/src/com/blogspot/rubyug/crawlquerypad/resources/CrawlQueryPadAboutBox.properties</file>
         </group>
     </open-files>
 </project-private>

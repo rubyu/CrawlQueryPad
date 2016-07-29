@@ -4,6 +4,7 @@
 
 package com.blogspot.rubyug.crawlquerypad;
 
+import java.io.File;
 import org.jdesktop.application.Application;
 import org.jdesktop.application.SingleFrameApplication;
 import org.slf4j.Logger;
@@ -67,16 +68,19 @@ public class CrawlQueryPadApp extends SingleFrameApplication {
      * Main method launching the application.
      */
     public static void main(String[] args) {
-        /*
-        argument = args;
-         */
+      if (!appHome.exists()) {
+        appHome.mkdir();
+      }
+      
       logger.info("database initialize");
       try {
-        DB.initialize("default");
+        DB.initialize();
       } catch(Exception e) {
         logger.error(Utils.ThrowableToString(e));
         return;
       }
       launch(CrawlQueryPadApp.class, args);
     }
+    
+    public static File appHome = new File(System.getProperty("user.home"), ".cqpad");
 }

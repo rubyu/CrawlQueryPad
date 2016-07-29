@@ -4,6 +4,7 @@ package com.blogspot.rubyug.crawlquerypad;
 import java.io.*;
 import java.sql.*;
 import org.h2.jdbcx.JdbcConnectionPool;
+import com.devx.io.TempFileManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,14 +14,13 @@ public class DB {
   private static String profile = null;
   private static JdbcConnectionPool connectionPool = null;
 
-  public static void initialize(String _profile)
-  throws SQLException {
-    if (null != profile) {
-      throw new IllegalStateException();
-    }
-    profile = _profile;
+  public static void initialize()
+  throws IOException, SQLException {
+    File dbFile = TempFileManager.createTempFile("h2db", null);
+    String dbPath = dbFile.getPath().replace("\\", "/");
+    logger.debug("database path: " + dbPath);
     connectionPool = JdbcConnectionPool.create(
-          "jdbc:h2:~/.cqpad/" + profile + ";DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa"
+          "jdbc:h2:file:" +  dbPath + ";DEFAULT_LOCK_TIMEOUT=1000;DB_CLOSE_ON_EXIT=FALSE", "sa", "sa"
         );
     schemaUpdate();
   }

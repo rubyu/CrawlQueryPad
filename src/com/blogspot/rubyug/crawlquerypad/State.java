@@ -3,6 +3,8 @@ package com.blogspot.rubyug.crawlquerypad;
 
 import java.util.*;
 import java.io.*;
+import java.nio.channels.*;
+import java.nio.file.Files;
 import javax.xml.stream.*;
 import java.util.regex.*;
 import javax.xml.parsers.*;
@@ -327,5 +329,45 @@ public class State {
       key = key.toLowerCase();
     }
     return key;
+  }
+  
+  public static State load(String name) {
+    File file = new File(CrawlQueryPadApp.appHome, name + ".xml");
+    if (file.exists())
+    {
+      FileInputStream fs = null;
+      try {
+        fs = new FileInputStream(file);
+        return new State(fs);    
+      } catch (Exception e) {
+        e.printStackTrace();
+      } finally {
+        try {
+          fs.close();
+        } catch (Exception e) {}
+      }
+    }
+    return new State();
+  }
+    
+  public void save(String name) {
+    File file = new File(CrawlQueryPadApp.appHome, name + ".xml");  
+    FileOutputStream fs = null;
+    FileChannel fc = null;
+    FileLock lock = null;
+    OutputStreamWriter writer = null;
+    try {
+      fs = new FileOutputStream(file);
+      fc = fs.getChannel();
+      lock = fc.lock();
+      writer = new OutputStreamWriter(fs, "UTF-8");
+      writer.write(toXML());
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      try {
+        writer.close();
+      } catch (Exception e) {}
+    }
   }
 }
