@@ -72,7 +72,7 @@
 
     -->
    <property name="version" value="0" />
-   <property name="bzr.revno" value="73" />
+   <property name="bzr.revno" value="74" />
    <property name="bzr.date" value="-" />
    <property name="bzr.build-date" value="-" />
 
